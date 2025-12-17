@@ -5850,21 +5850,7 @@ with tab_mapping["Monitoramento de Redes"]:
     # Área de chat principal
     st.header("💬 Simulador de Respostas do Agente")
 
-    # Exemplos de perguntas rápidas
-    st.subheader("🎯 Exemplos para testar:")
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        if st.button("❓ Dúvida Técnica", use_container_width=True, key="exemplo_tecnico"):
-            st.session_state.messages_monitoramento.append({"role": "user", "content": "Esse produto serve pra todas as culturas?"})
-
-    with col2:
-        if st.button("😊 Comentário Social", use_container_width=True, key="exemplo_social"):
-            st.session_state.messages_monitoramento.append({"role": "user", "content": "O campo tá lindo demais!"})
-
-    with col3:
-        if st.button("⚠️ Crítica/Problema", use_container_width=True, key="exemplo_critica"):
-            st.session_state.messages_monitoramento.append({"role": "user", "content": "Usei e não funcionou."})
+   
 
     # Exibir histórico de mensagens
     for message in st.session_state.messages_monitoramento:
@@ -5893,34 +5879,7 @@ with tab_mapping["Monitoramento de Redes"]:
                 # Adicionar ao histórico
                 st.session_state.messages_monitoramento.append({"role": "assistant", "content": resposta})
 
-    # Seção de análise de performance
-    st.markdown("---")
-    st.header("📊 Análise da Resposta")
 
-    if st.session_state.messages_monitoramento:
-        ultima_resposta = st.session_state.messages_monitoramento[-1]["content"] if st.session_state.messages_monitoramento[-1]["role"] == "assistant" else ""
-        
-        if ultima_resposta:
-            col_analise1, col_analise2, col_analise3 = st.columns(3)
-            
-            with col_analise1:
-                # Análise de tom
-                if "😊" in ultima_resposta or "😍" in ultima_resposta:
-                    st.metric("Tom Identificado", "Social/Engajador", delta="Leve")
-                elif "🔬" in ultima_resposta or "📊" in ultima_resposta:
-                    st.metric("Tom Identificado", "Técnico", delta="Preciso")
-                else:
-                    st.metric("Tom Identificado", "Balanceado", delta="Adaptado")
-            
-            with col_analise2:
-                # Comprimento da resposta
-                palavras = len(ultima_resposta.split())
-                st.metric("Tamanho", f"{palavras} palavras")
-            
-            with col_analise3:
-                # Uso de emojis
-                emojis = sum(1 for char in ultima_resposta if char in "😀😃😄😁😆😅😂🤣☺️😊😇🙂🙃😉😌😍🥰😘😗😙😚😋😛😝😜🤪🤨🧐🤓😎🤩🥳😏😒😞😔😟😕🙁☹️😣😖😫😩🥺😢😭😤😠😡🤬🤯😳🥵🥶😱😨😰😥😓🤗🤔🤭🤫🤥😶😐😑😬🙄😯😦😧😮😲🥱😴🤤😪😵🤐🥴🤢🤮🤧😷🤒🤕🤑🤠😈👿👹👺🤡💩👻💀☠️👽👾🤖🎃😺😸😹😻😼😽🙀😿😾")
-                st.metric("Emojis", emojis, delta="Moderado" if emojis <= 2 else "Alto")
 
 # --- Funções auxiliares para busca web ---
 def buscar_perplexity(pergunta: str, contexto_agente: str = None) -> str:
