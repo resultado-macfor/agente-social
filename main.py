@@ -5638,65 +5638,12 @@ with tab_mapping["📝 Revisão Ortográfica"]:
                 - Facilita a localização e correção de erros
                 """)
         
-        # Seção informativa
-        with st.expander("ℹ️ Sobre a Revisão Ortográfica"):
-            st.markdown("""
-            ### 🎯 O que é Analisado
-            
-            **🔤 Ortografia:**
-            - Erros de grafia e acentuação
-            - Uso correto de maiúsculas e minúsculas
-            - Escrita de números e datas
-            - Concordância nominal e verbal
-            
-            **📖 Gramática:**
-            - Estrutura sintática das frases
-            - Uso adequado de preposições
-            - Colocação pronominal
-            - Regência verbal e nominal
-            
-            **🔠 Pontuação:**
-            - Uso de vírgulas, pontos, dois-pontos
-            - Aplicação de travessões e parênteses
-            - Pontuação de citações e diálogos
-            
-            **📝 Estilo e Clareza:**
-            - Coesão e coerência textual
-            - Adequação ao tom da marca
-            - Clareza na comunicação
-            - Eliminação de vícios de linguagem
-            
-            ### 🤖 Modelos Disponíveis
-            
-            **Gemini:**
-            - Análise rápida e eficiente
-            - Boa compreensão de contexto
-            - Ideal para textos técnicos
-            
-            **Claude:**
-            - Análise mais detalhada e contextual
-            - Melhor compreensão de nuances
-            - Excelente para textos criativos
-            
-            ### 💡 Dicas para Melhor Revisão
-            
-            1. **Texto Completo**: Cole o texto integral para análise detalhada
-            2. **Segmentos Relevantes**: Selecione as bases de conhecimento apropriadas
-            3. **Contexto Específico**: Use agentes especializados para cada tipo de conteúdo
-            4. **Implementação**: Aplique as sugestões sistematicamente
-            
-            ### 🎨 Benefícios da Revisão Contextual
-            
-            - **Consistência da Marca**: Mantém o tom e estilo adequados
-            - **Qualidade Profissional**: Elimina erros que prejudicam a credibilidade
-            - **Otimização de Conteúdo**: Melhora a clareza e impacto da comunicação
-            - **Eficiência**: Reduz tempo de revisão manual
-            """)
+        
 with tab_mapping["Monitoramento de Redes"]:
     st.header("🤖 Agente de Monitoramento")
     st.markdown("**Especialista que fala como gente**")
 
-    def gerar_resposta_agente(pergunta_usuario: str, historico: List[Dict] = None, agente_monitoramento=None, modelo_escolhido="Gemini") -> str:
+    def gerar_resposta_agente(pergunta_usuario: str, historico: List[Dict] = None, agente_monitoramento=None, modelo_escolhido="Gemini", contexto_adicional: str = None) -> str:
         """Gera resposta do agente usando RAG e base do agente de monitoramento"""
         
         # Configuração do agente - usa base do agente selecionado ou padrão
@@ -5708,21 +5655,42 @@ with tab_mapping["Monitoramento de Redes"]:
             PERSONALIDADE: Especialista técnico do agronegócio com habilidade social - "Especialista que fala como gente"
 
             TOM DE VOZ:
-            - Tom que encontra um equilíbrio entre institucional e casual, afinal, as respostas estão sendo geradas no ambiente de rede social por parte de um perfil de empresa
+            - Técnico, confiável e seguro, mas acessível
             - Evita exageros e promessas vazias
             - Sempre embasado em fatos e ciência
             - Frases curtas e diretas, mais simpáticas
+            - Toque de leveza e ironia pontual quando o contexto permite
 
-            DIRETRIZES:
-            - NÃO inventar informações técnicas
-            - Sempre basear respostas em fatos
-            - Manter tom profissional mas acessível
-            - Adaptar resposta ao tipo de pergunta
+
+            TOM DE VOZ (BASEADO NO FEEDBACK):
+            - Equilíbrio entre institucional e casual
+            - Evitar respostas muito longas ou com excesso de adjetivos
+            - Adaptar ao contexto específico do post
+            - Respostas diretas e objetivas quando necessário
+            - Uso moderado de emojis (apenas quando fizer sentido)
+            - Respostas para emojis isolados devem ser apenas emojis também
+            - Não inventar informações técnicas
+            - Reconhecer elogios de forma genuína mas sucinta
+
+            FEEDBACK A CONSIDERAR:
+            1. PARA PERGUNTAS DIRETAS: Responder de fato à pergunta, não ser genérico
+            2. PARA LINKS: Usar links diretos quando disponíveis
+            3. PARA ELOGIOS: Agradecer de forma simples e personalizada quando possível
+            4. PARA SUGESTÕES: Reconhecer a sugestão e mostrar abertura
+            5. PARA COMENTÁRIOS FORA DE CONTEXTO: Não responder com informações irrelevantes
+            6. PARA APENAS EMOJIS: Responder apenas com emojis também
+
+           
             """
+
+        # Adicionar contexto adicional se fornecido
+        contexto_completo = system_prompt
+        if contexto_adicional and contexto_adicional.strip():
+            contexto_completo += f"\n\nCONTEXTO ADICIONAL FORNECIDO:\n{contexto_adicional}"
         
         # Constrói o prompt final
         prompt_final = f"""
-        {system_prompt}
+        {contexto_completo}
         
         
         PERGUNTA DO USUÁRIO:
@@ -5738,6 +5706,26 @@ with tab_mapping["Monitoramento de Redes"]:
         - Perguntas sociais: seja leve e engajador  
         - Críticas ou problemas: seja construtivo e proativo
         - Forneça respostas breves - 1 a 3 frases
+
+        TOM DE VOZ (BASEADO NO FEEDBACK):
+            - Equilíbrio entre institucional e casual
+            - Evitar respostas muito longas ou com excesso de adjetivos
+            - Adaptar ao contexto específico do post
+            - Respostas diretas e objetivas quando necessário
+            - Uso moderado de emojis (apenas quando fizer sentido)
+            - Respostas para emojis isolados devem ser apenas emojis também
+            - Não inventar informações técnicas
+            - Reconhecer elogios de forma genuína mas sucinta
+
+            FEEDBACK A CONSIDERAR:
+            1. PARA PERGUNTAS DIRETAS: Responder de fato à pergunta, não ser genérico
+            2. PARA LINKS: Usar links diretos quando disponíveis
+            3. PARA ELOGIOS: Agradecer de forma simples e personalizada quando possível
+            4. PARA SUGESTÕES: Reconhecer a sugestão e mostrar abertura
+            5. PARA COMENTÁRIOS FORA DE CONTEXTO: Não responder com informações irrelevantes
+            6. PARA APENAS EMOJIS: Responder apenas com emojis também
+
+           
         
         Sua resposta deve refletir a personalidade do "especialista que fala como gente".
         """
@@ -5750,6 +5738,17 @@ with tab_mapping["Monitoramento de Redes"]:
 
     # SELEÇÃO DE AGENTE DE MONITORAMENTO
     st.header("🔧 Configuração do Agente de Monitoramento")
+    
+    # Caixa de texto para contexto adicional
+    st.subheader("📝 Contexto Adicional para Respostas")
+    
+    contexto_adicional = st.text_area(
+        "Forneça contexto adicional para as respostas:",
+        height=150,
+        placeholder="Ex: Este post é sobre vagas de emprego na MRS...\nOu: Estamos respondendo comentários sobre decoração de Natal...\nOu: O vídeo é sobre corrida de equipes...",
+        help="Este contexto será incluído no prompt para gerar respostas mais adequadas ao cenário específico",
+        key="contexto_monitoramento"
+    )
     
     # Seletor de modelo para monitoramento
     st.sidebar.subheader("🤖 Modelo para Monitoramento")
@@ -5811,6 +5810,11 @@ with tab_mapping["Monitoramento de Redes"]:
             st.success(f"**Agente Ativo:** {agente_monitoramento['nome']}")
         else:
             st.warning("⚠️ Nenhum agente selecionado")
+        
+        # Mostrar contexto atual se houver
+        if contexto_adicional and contexto_adicional.strip():
+            st.info("📝 Contexto ativo:")
+            st.caption(contexto_adicional[:100] + "..." if len(contexto_adicional) > 100 else contexto_adicional)
         
         st.markdown("""
         **Personalidade:**
@@ -5881,7 +5885,8 @@ with tab_mapping["Monitoramento de Redes"]:
                     prompt, 
                     st.session_state.messages_monitoramento,
                     agente_monitoramento,
-                    modelo_monitoramento
+                    modelo_monitoramento,
+                    contexto_adicional  # Passa o contexto adicional
                 )
                 st.markdown(resposta)
                 
@@ -5916,26 +5921,6 @@ with tab_mapping["Monitoramento de Redes"]:
                 # Uso de emojis
                 emojis = sum(1 for char in ultima_resposta if char in "😀😃😄😁😆😅😂🤣☺️😊😇🙂🙃😉😌😍🥰😘😗😙😚😋😛😝😜🤪🤨🧐🤓😎🤩🥳😏😒😞😔😟😕🙁☹️😣😖😫😩🥺😢😭😤😠😡🤬🤯😳🥵🥶😱😨😰😥😓🤗🤔🤭🤫🤥😶😐😑😬🙄😯😦😧😮😲🥱😴🤤😪😵🤐🥴🤢🤮🤧😷🤒🤕🤑🤠😈👿👹👺🤡💩👻💀☠️👽👾🤖🎃😺😸😹😻😼😽🙀😿😾")
                 st.metric("Emojis", emojis, delta="Moderado" if emojis <= 2 else "Alto")
-
-    # Seção de exemplos de uso
-    with st.expander("📋 Exemplos de Respostas do Agente"):
-        st.markdown("""
-        **🎯 PERGUNTA TÉCNICA:**
-        *Usuário:* "Qual a diferença entre os nematoides de galha e de cisto na soja?"
-        
-        **🤖 AGENTE:** "Boa pergunta! Os nematoides de galha (Meloidogyne) formam aquelas 'inchações' nas raízes, enquanto os de cisto (Heterodera) ficam mais externos. Ambos roubam nutrientes, mas o manejo pode ser diferente. Temos soluções específicas para cada caso! 🌱"
-        
-        **🎯 COMENTÁRIO SOCIAL:**
-        *Usuário:* "Adorei ver as fotos da lavoura no stories!"
-        
-        **🤖 AGENTE:** "A gente também ama compartilhar esses momentos! Quando a tecnologia encontra o cuidado certo, o campo fica ainda mais bonito 😍 Compartilhe suas fotos também!"
-        
-        **🎯 CRÍTICA/PROBLEMA:**
-        *Usuário:* "A aplicação não deu o resultado esperado"
-        
-        **🤖 AGENTE:** "Poxa, que pena saber disso! Vamos entender melhor o que aconteceu. Pode me contar sobre as condições de aplicação? Assim conseguimos te orientar melhor da próxima vez. A equipe técnica também está à disposição! 📞"
-        """)
-
 
 # --- Funções auxiliares para busca web ---
 def buscar_perplexity(pergunta: str, contexto_agente: str = None) -> str:
