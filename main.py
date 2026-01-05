@@ -468,7 +468,7 @@ if not gemini_api_key:
     st.stop()
 
 genai.configure(api_key=gemini_api_key)
-modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.1})
+modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.0})
 modelo_texto = genai.GenerativeModel("gemini-2.5-flash")
 
 # Configuração da API do Perplexity
@@ -6062,7 +6062,7 @@ def buscar_perplexity(pergunta: str, contexto_agente: str = None) -> str:
             "model": "sonar-medium-online",
             "messages": messages,
             "max_tokens": 2000,
-            "temperature": 0.1
+            "temperature": 0.0
         }
         
         response = requests.post(
@@ -6116,7 +6116,7 @@ Forneça uma análise detalhada baseada no conteúdo dessas URLs."""
             "model": "sonar-medium-online",
             "messages": messages,
             "max_tokens": 3000,
-            "temperature": 0.1
+            "temperature": 0.0
         }
         
         response = requests.post(
