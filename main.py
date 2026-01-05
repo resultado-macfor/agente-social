@@ -3439,727 +3439,475 @@ with tab_mapping["✅ Validação Unificada"]:
         
         # --- SUBTAB: BATIMENTO DE LEGENDAS ---
         with subtab_batimento_legendas:
-            st.subheader("🎧 Batimento de Legendas com Áudio")
-            st.markdown("""
-            **Analisa a sincronização entre as legendas (arquivo SRT) e o áudio do vídeo.**
+            st.subheader("🎧 Batimento de Legendas Embutidas")
             
-            Esta ferramenta compara o texto das legendas com a transcrição do áudio do vídeo para identificar:
-            - 🔍 **Sincronização temporal**: Verifica se o timing das legendas está correto
-            - 📝 **Conteúdo textual**: Compara o que está escrito nas legendas com o que é realmente falado
-            - ⚠️ **Erros de transcrição**: Identifica palavras ou frases incorretas nas legendas
-            - 🎯 **Atrasos/Adiantamentos**: Detecta legendas que aparecem muito cedo ou muito tarde
-            """)
-            
-            # Botão para limpar análises anteriores
-            if st.button("🗑️ Limpar Análises Anteriores", key="limpar_batimento_legendas"):
-                if 'resultados_batimento_legendas' in st.session_state:
-                    del st.session_state.resultados_batimento_legendas
-                st.rerun()
-            
-            # Container principal
             col_upload, col_config = st.columns([2, 1])
             
             with col_upload:
-                st.markdown("### 📤 Upload de Arquivos")
-                
-                # Upload de vídeo
                 uploaded_video_batimento = st.file_uploader(
-                    "Carregue o vídeo para análise:",
+                    "Carregue o vídeo com legendas embutidas:",
                     type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
-                    key="video_batimento_upload",
-                    help="O vídeo será analisado para extrair o áudio e transcrevê-lo"
+                    key="video_batimento_upload"
                 )
                 
-                # Upload de legendas (SRT)
-                uploaded_srt = st.file_uploader(
-                    "Carregue o arquivo de legendas (SRT):",
-                    type=["srt", "txt"],
-                    key="srt_upload",
-                    help="Arquivo de legendas no formato SRT para comparação"
-                )
+                if uploaded_video_batimento:
+                    st.video(uploaded_video_batimento, format=f"video/{uploaded_video_batimento.type.split('/')[-1]}")
                 
             with col_config:
-                st.markdown("### ⚙️ Configurações de Análise")
-                
-                # Configurações de sensibilidade
                 sensibilidade_sincronizacao = st.slider(
-                    "Sensibilidade da sincronização (segundos):",
+                    "Sensibilidade (segundos):",
                     min_value=0.5,
                     max_value=3.0,
                     value=1.0,
-                    step=0.5,
-                    help="Tolerância em segundos para considerar a sincronização correta"
+                    step=0.5
                 )
                 
                 linguagem_audio = st.selectbox(
                     "Linguagem do áudio:",
                     ["pt-BR", "pt-PT", "en-US", "en-GB", "es-ES"],
-                    help="Selecione a linguagem do áudio para melhor transcrição",
                     index=0
                 )
                 
-                detalhamento_analise = st.selectbox(
-                    "Nível de detalhamento:",
-                    ["Básico", "Detalhado", "Completo"],
-                    help="Escolha o nível de detalhamento do relatório",
-                    index=1
+                regiao_legendas = st.selectbox(
+                    "Região das legendas:",
+                    ["Inferior", "Superior", "Personalizada", "Auto-detect"],
+                    index=0
+                )
+                
+                amostragem_frames = st.slider(
+                    "Frames por segundo:",
+                    min_value=1,
+                    max_value=10,
+                    value=3
                 )
             
-            # Função para analisar arquivo SRT
-            def analisar_arquivo_srt(srt_content):
-                """Extrai informações do arquivo SRT"""
-                legendas = []
+            def extrair_frames_video(video_bytes, fps_amostragem=3):
+                frames_info = []
                 
                 try:
-                    linhas = srt_content.split('\n')
+                    import tempfile
+                    import cv2
+                    import os
+                    
+                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_video:
+                        tmp_video.write(video_bytes)
+                        video_path = tmp_video.name
+                    
+                    try:
+                        cap = cv2.VideoCapture(video_path)
+                        fps_original = cap.get(cv2.CAP_PROP_FPS)
+                        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+                        
+                        intervalo_frames = max(1, int(fps_original / fps_amostragem))
+                        
+                        frame_count = 0
+                        frames_processados = 0
+                        
+                        while cap.isOpened() and frames_processados < 100:
+                            ret, frame = cap.read()
+                            
+                            if not ret:
+                                break
+                            
+                            if frame_count % intervalo_frames == 0:
+                                tempo_atual = frame_count / fps_original
+                                
+                                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                                _, buffer = cv2.imencode('.jpg', frame)
+                                frame_bytes = buffer.tobytes()
+                                
+                                frames_info.append({
+                                    'frame_num': frame_count,
+                                    'tempo_segundos': tempo_atual,
+                                    'frame_bytes': frame_bytes,
+                                    'altura': frame.shape[0],
+                                    'largura': frame.shape[1]
+                                })
+                                
+                                frames_processados += 1
+                            
+                            frame_count += 1
+                        
+                        cap.release()
+                        
+                    finally:
+                        try:
+                            os.unlink(video_path)
+                        except:
+                            pass
+                    
+                except Exception as e:
+                    st.error(f"Erro ao extrair frames: {str(e)}")
+                
+                return frames_info
+            
+            def detectar_legendas_frames(frames_info, regiao="Inferior"):
+                legendas_detectadas = []
+                
+                for idx, frame_info in enumerate(frames_info):
+                    try:
+                        prompt_deteccao = f"""
+                        Analise este frame de vídeo e DETECTE SE HÁ LEGENDAS VISÍVEIS.
+                        
+                        Procure por texto que pareça ser legenda.
+                        Se encontrar, transcreva TODO o texto visível.
+                        
+                        Formato:
+                        LEGENDA DETECTADA: [SIM/NÃO]
+                        
+                        Se SIM:
+                        TEMPO: [tempo_em_segundos]s
+                        TEXTO: "[texto_da_legenda]"
+                        POSIÇÃO: [superior/meio/inferior]
+                        
+                        Se NÃO:
+                        RAZÃO: [sem legenda visível]
+                        """
+                        
+                        response = modelo_vision.generate_content([
+                            prompt_deteccao,
+                            {"mime_type": "image/jpeg", "data": frame_info['frame_bytes']}
+                        ])
+                        
+                        resposta = response.text
+                        
+                        if "LEGENDA DETECTADA: SIM" in resposta:
+                            linhas = resposta.split('\n')
+                            texto_legenda = ""
+                            posicao = ""
+                            
+                            for linha in linhas:
+                                if "TEXTO:" in linha:
+                                    texto_legenda = linha.split("TEXTO:")[1].strip().strip('"')
+                                elif "POSIÇÃO:" in linha:
+                                    posicao = linha.split("POSIÇÃO:")[1].strip()
+                            
+                            if texto_legenda and len(texto_legenda) > 2:
+                                legendas_detectadas.append({
+                                    'tempo_segundos': frame_info['tempo_segundos'],
+                                    'frame_num': frame_info['frame_num'],
+                                    'texto': texto_legenda,
+                                    'posicao': posicao
+                                })
+                    
+                    except Exception as e:
+                        continue
+                
+                return legendas_detectadas
+            
+            def transcrever_audio_video(video_bytes, linguagem="pt-BR"):
+                try:
+                    prompt_transcricao = f"""
+                    Analise o áudio deste vídeo e forneça uma transcrição precisa com timestamps.
+                    
+                    INSTRUÇÕES:
+                    1. Transcreva TODO o áudio do vídeo
+                    2. Inclua timestamps para cada segmento (início e fim em segundos)
+                    3. Seja PRECISO na transcrição
+                    4. Linguagem: {linguagem}
+                    
+                    FORMATO:
+                    SEGMENTO 1:
+                    TEMPO: [início]s - [fim]s
+                    TEXTO: "[transcrição]"
+                    
+                    SEGMENTO 2:
+                    TEMPO: [início]s - [fim]s
+                    TEXTO: "[transcrição]"
+                    """
+                    
+                    response = modelo_vision.generate_content([
+                        prompt_transcricao,
+                        {"mime_type": "video/mp4", "data": video_bytes}
+                    ])
+                    
+                    transcricao_texto = response.text
+                    segmentos_transcricao = []
+                    linhas = transcricao_texto.split('\n')
                     i = 0
                     
                     while i < len(linhas):
-                        # Pular linhas vazias
-                        while i < len(linhas) and not linhas[i].strip():
-                            i += 1
-                        
-                        if i >= len(linhas):
-                            break
-                        
-                        # Número da legenda
-                        num_legenda = linhas[i].strip()
-                        i += 1
-                        
-                        # Timing
-                        if i < len(linhas):
-                            timing = linhas[i].strip()
-                            i += 1
-                            
-                            # Extrair tempo de início e fim
-                            if ' --> ' in timing:
-                                inicio, fim = timing.split(' --> ')
-                            else:
-                                inicio, fim = "00:00:00,000", "00:00:00,000"
+                        if 'SEGMENTO' in linhas[i] or 'TEMPO:' in linhas[i]:
+                            try:
+                                tempo_linha = ""
+                                if i+1 < len(linhas) and 'TEMPO:' in linhas[i+1]:
+                                    tempo_linha = linhas[i+1]
+                                elif 'TEMPO:' in linhas[i]:
+                                    tempo_linha = linhas[i]
+                                
+                                if tempo_linha and '-' in tempo_linha:
+                                    tempo_parte = tempo_linha.split('TEMPO:')[1].strip() if 'TEMPO:' in tempo_linha else tempo_linha
+                                    if '-' in tempo_parte:
+                                        inicio_str, fim_str = tempo_parte.split('-')
+                                        inicio = float(inicio_str.replace('s', '').strip())
+                                        fim = float(fim_str.replace('s', '').strip())
+                                    else:
+                                        inicio = 0
+                                        fim = 0
+                                else:
+                                    inicio = 0
+                                    fim = 0
+                                
+                                texto = ""
+                                if i+2 < len(linhas) and 'TEXTO:' in linhas[i+2]:
+                                    texto = linhas[i+2].split('TEXTO:')[1].strip().strip('"')
+                                elif i+1 < len(linhas) and 'TEXTO:' in linhas[i+1]:
+                                    texto = linhas[i+1].split('TEXTO:')[1].strip().strip('"')
+                                
+                                if texto and len(texto.strip()) > 3:
+                                    segmentos_transcricao.append({
+                                        'start': inicio,
+                                        'end': fim,
+                                        'text': texto.strip()
+                                    })
+                                
+                                i += 3
+                            except:
+                                i += 1
                         else:
-                            inicio, fim = "00:00:00,000", "00:00:00,000"
-                        
-                        # Texto da legenda
-                        texto_legenda = ""
-                        while i < len(linhas) and linhas[i].strip():
-                            texto_legenda += linhas[i] + " "
                             i += 1
+                    
+                    if not segmentos_transcricao:
+                        import re
+                        padrao_tempo = r'(\d+\.?\d*)s\s*[-–]\s*(\d+\.?\d*)s'
+                        padrao_texto = r'["](.*?)["]'
                         
-                        texto_legenda = texto_legenda.strip()
+                        tempos = re.findall(padrao_tempo, transcricao_texto)
+                        textos = re.findall(padrao_texto, transcricao_texto)
                         
-                        if texto_legenda and num_legenda.isdigit():
-                            legendas.append({
-                                'numero': int(num_legenda),
-                                'inicio': inicio.strip(),
-                                'fim': fim.strip(),
-                                'texto': texto_legenda,
-                                'duracao_segundos': calcular_duracao_segundos(inicio, fim)
-                            })
-                        
-                        i += 1
+                        for idx, (inicio_str, fim_str) in enumerate(tempos):
+                            if idx < len(textos):
+                                try:
+                                    inicio = float(inicio_str)
+                                    fim = float(fim_str)
+                                    texto = textos[idx]
+                                    
+                                    if texto and len(texto.strip()) > 3:
+                                        segmentos_transcricao.append({
+                                            'start': inicio,
+                                            'end': fim,
+                                            'text': texto.strip()
+                                        })
+                                except:
+                                    continue
+                    
+                    return segmentos_transcricao
                     
                 except Exception as e:
-                    st.error(f"Erro ao analisar arquivo SRT: {str(e)}")
-                
-                return legendas
+                    return []
             
-            # Função para converter tempo SRT para segundos
-            def tempo_para_segundos(tempo_srt):
-                """Converte tempo no formato SRT (HH:MM:SS,mmm) para segundos"""
-                try:
-                    # Remover milissegundos
-                    if ',' in tempo_srt:
-                        tempo, milissegundos = tempo_srt.split(',')
-                        milissegundos = int(milissegundos) / 1000
-                    else:
-                        tempo = tempo_srt
-                        milissegundos = 0
-                    
-                    # Separar horas, minutos, segundos
-                    horas, minutos, segundos = map(int, tempo.split(':'))
-                    
-                    total_segundos = horas * 3600 + minutos * 60 + segundos + milissegundos
-                    return total_segundos
-                except:
-                    return 0
-            
-            def calcular_duracao_segundos(inicio, fim):
-                """Calcula duração em segundos entre dois tempos SRT"""
-                inicio_seg = tempo_para_segundos(inicio)
-                fim_seg = tempo_para_segundos(fim)
-                return fim_seg - inicio_seg
-            
-            # Função para comparar legendas com transcrição
-            def comparar_legenda_transcricao(legendas, segmentos_transcricao, sensibilidade=1.0):
-                """Compara legendas com segmentos de transcrição"""
-                resultados = []
-                problemas = []
-                
-                for legenda in legendas:
-                    inicio_legenda = tempo_para_segundos(legenda['inicio'])
-                    fim_legenda = tempo_para_segundos(legenda['fim'])
-                    texto_legenda = legenda['texto'].lower()
-                    
-                    # Encontrar segmentos de transcrição que correspondem ao tempo da legenda
-                    segmentos_correspondentes = []
-                    for segmento in segmentos_transcricao:
-                        inicio_segmento = segmento.get('start', 0)
-                        fim_segmento = segmento.get('end', 0)
-                        texto_segmento = segmento.get('text', '').lower()
-                        
-                        # Verificar sobreposição temporal
-                        sobrepoe = not (fim_legenda < inicio_segmento or inicio_legenda > fim_segmento)
-                        
-                        if sobrepoe:
-                            # Calcular sobreposição
-                            sobreposicao_inicio = max(inicio_legenda, inicio_segmento)
-                            sobreposicao_fim = min(fim_legenda, fim_segmento)
-                            duracao_sobreposicao = sobreposicao_fim - sobreposicao_inicio
-                            
-                            segmentos_correspondentes.append({
-                                'segmento': segmento,
-                                'sobreposicao': duracao_sobreposicao,
-                                'texto': texto_segmento
-                            })
-                    
-                    # Analisar correspondência
-                    if segmentos_correspondentes:
-                        # Encontrar segmento com maior sobreposição
-                        melhor_segmento = max(segmentos_correspondentes, key=lambda x: x['sobreposicao'])
-                        texto_transcricao = melhor_segmento['texto']
-                        
-                        # Comparar textos
-                        similaridade = calcular_similaridade_texto(texto_legenda, texto_transcricao)
-                        
-                        # Verificar sincronização temporal
-                        atraso_legenda = inicio_legenda - melhor_segmento['segmento']['start']
-                        
-                        resultado = {
-                            'legenda_numero': legenda['numero'],
-                            'tempo_legenda': f"{legenda['inicio']} --> {legenda['fim']}",
-                            'texto_legenda': legenda['texto'],
-                            'texto_transcricao': texto_transcricao,
-                            'similaridade': similaridade,
-                            'atraso_segundos': abs(atraso_legenda) if abs(atraso_legenda) > sensibilidade else 0,
-                            'esta_atrasada': atraso_legenda > sensibilidade,
-                            'esta_adiantada': atraso_legenda < -sensibilidade,
-                            'tempo_correspondente': f"{melhor_segmento['segmento']['start']:.2f}s - {melhor_segmento['segmento']['end']:.2f}s"
-                        }
-                        
-                        # Identificar problemas
-                        if similaridade < 0.7:
-                            problemas.append({
-                                'tipo': 'CONTEÚDO',
-                                'legenda': legenda['numero'],
-                                'descricao': f"Texto da legenda difere significativamente da transcrição (similaridade: {similaridade:.2%})",
-                                'gravidade': 'ALTA' if similaridade < 0.5 else 'MÉDIA'
-                            })
-                        
-                        if resultado['atraso_segundos'] > sensibilidade:
-                            problemas.append({
-                                'tipo': 'TEMPORAL',
-                                'legenda': legenda['numero'],
-                                'descricao': f"Legenda {'atrasada' if resultado['esta_atrasada'] else 'adiantada'} por {resultado['atraso_segundos']:.2f}s",
-                                'gravidade': 'MÉDIA' if resultado['atraso_segundos'] < 2 else 'ALTA'
-                            })
-                        
-                        resultados.append(resultado)
-                    else:
-                        # Nenhum segmento correspondente encontrado
-                        problemas.append({
-                            'tipo': 'TEMPORAL',
-                            'legenda': legenda['numero'],
-                            'descricao': f"Nenhuma transcrição encontrada para o período da legenda ({legenda['inicio']} - {legenda['fim']})",
-                            'gravidade': 'ALTA'
-                        })
-                        
-                        resultados.append({
-                            'legenda_numero': legenda['numero'],
-                            'tempo_legenda': f"{legenda['inicio']} --> {legenda['fim']}",
-                            'texto_legenda': legenda['texto'],
-                            'texto_transcricao': "NENHUMA TRANSCRIÇÃO ENCONTRADA",
-                            'similaridade': 0,
-                            'atraso_segundos': 0,
-                            'esta_atrasada': False,
-                            'esta_adiantada': False,
-                            'tempo_correspondente': "N/A"
-                        })
-                
-                return resultados, problemas
-            
-            # Função para calcular similaridade entre textos
             def calcular_similaridade_texto(texto1, texto2):
-                """Calcula similaridade entre dois textos"""
                 import difflib
+                import string
                 
-                # Normalizar textos
                 texto1 = str(texto1).lower().strip()
                 texto2 = str(texto2).lower().strip()
                 
                 if not texto1 or not texto2:
                     return 0.0
                 
-                # Usar SequenceMatcher para calcular similaridade
+                texto1 = texto1.translate(str.maketrans('', '', string.punctuation))
+                texto2 = texto2.translate(str.maketrans('', '', string.punctuation))
+                
                 similaridade = difflib.SequenceMatcher(None, texto1, texto2).ratio()
                 return similaridade
             
-            # Função para gerar relatório de batimento
-            def gerar_relatorio_batimento(resultados, problemas, estatisticas):
-                """Gera relatório completo do batimento de legendas"""
+            def comparar_legenda_transcricao_embedded(legendas_detectadas, segmentos_transcricao, sensibilidade=1.0):
+                resultados = []
+                problemas = []
                 
-                relatorio = f"""
-# 🎧 RELATÓRIO DE BATIMENTO DE LEGENDAS
-
-**Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-**Arquivo de Vídeo:** {estatisticas.get('nome_video', 'N/A')}
-**Arquivo de Legendas:** {estatisticas.get('nome_legendas', 'N/A')}
-**Sensibilidade Configurada:** {estatisticas.get('sensibilidade', 1.0)} segundos
-**Linguagem do Áudio:** {estatisticas.get('linguagem', 'pt-BR')}
-
-## 📊 ESTATÍSTICAS GERAIS
-- **Total de Legendas Analisadas:** {estatisticas.get('total_legendas', 0)}
-- **Legendas com Problemas:** {estatisticas.get('legendas_com_problemas', 0)} ({estatisticas.get('percentual_problemas', 0):.1f}%)
-- **Similaridade Média:** {estatisticas.get('similaridade_media', 0):.2%}
-- **Atraso Médio:** {estatisticas.get('atraso_medio', 0):.2f} segundos
-
-## 🔍 TIPOS DE PROBLEMAS ENCONTRADOS
-"""
-                
-                # Agrupar problemas por tipo
-                problemas_por_tipo = {}
-                for problema in problemas:
-                    tipo = problema['tipo']
-                    if tipo not in problemas_por_tipo:
-                        problemas_por_tipo[tipo] = []
-                    problemas_por_tipo[tipo].append(problema)
-                
-                for tipo, lista_problemas in problemas_por_tipo.items():
-                    relatorio += f"\n### {tipo} ({len(lista_problemas)} problemas)\n"
-                    for problema in lista_problemas[:10]:  # Limitar a 10 por tipo
-                        emoji = "🔴" if problema['gravidade'] == 'ALTA' else "🟡" if problema['gravidade'] == 'MÉDIA' else "🟢"
-                        relatorio += f"- {emoji} **Legenda {problema['legenda']}**: {problema['descricao']}\n"
-                
-                # Análise detalhada das legendas
-                if detalhamento_analise in ["Detalhado", "Completo"]:
-                    relatorio += "\n## 📝 ANÁLISE DETALHADA POR LEGENDA\n\n"
+                for legenda in legendas_detectadas:
+                    tempo_legenda = legenda['tempo_segundos']
+                    texto_legenda = legenda['texto'].lower()
                     
-                    for resultado in resultados:
-                        status_emoji = "✅" if resultado['similaridade'] > 0.8 and resultado['atraso_segundos'] == 0 else \
-                                     "⚠️" if resultado['similaridade'] > 0.6 else "❌"
+                    segmentos_correspondentes = []
+                    for segmento in segmentos_transcricao:
+                        inicio_segmento = segmento.get('start', 0)
+                        fim_segmento = segmento.get('end', 0)
+                        texto_segmento = segmento.get('text', '').lower()
                         
-                        relatorio += f"### {status_emoji} Legenda {resultado['legenda_numero']}\n"
-                        relatorio += f"**Timing Legendas:** {resultado['tempo_legenda']}\n"
-                        relatorio += f"**Timing Transcrição:** {resultado['tempo_correspondente']}\n"
-                        relatorio += f"**Similaridade:** {resultado['similaridade']:.2%}\n"
+                        tempo_min = tempo_legenda - 2
+                        tempo_max = tempo_legenda + 2
                         
-                        if resultado['atraso_segundos'] > 0:
-                            relatorio += f"**⏰ {'Atraso' if resultado['esta_atrasada'] else 'Adiantamento'}: {resultado['atraso_segundos']:.2f}s**\n"
+                        sobrepoe = not (tempo_max < inicio_segmento or tempo_min > fim_segmento)
                         
-                        relatorio += f"\n**Texto da Legenda:**\n{resultado['texto_legenda']}\n"
-                        relatorio += f"\n**Texto da Transcrição:**\n{resultado['texto_transcricao']}\n"
-                        
-                        if detalhamento_analise == "Completo" and resultado['similaridade'] < 0.9:
-                            # Mostrar diferenças
-                            relatorio += f"\n**🔍 Diferenças Identificadas:**\n"
-                            relatorio += f"- Similaridade abaixo do ideal\n"
-                            if resultado['similaridade'] < 0.7:
-                                relatorio += f"- Recomendada revisão do texto\n"
-                        
-                        relatorio += "\n---\n"
-                
-                # Recomendações
-                relatorio += "\n## 🎯 RECOMENDAÇÕES\n\n"
-                
-                if estatisticas.get('percentual_problemas', 0) > 30:
-                    relatorio += "🔴 **REVISÃO URGENTE NECESSÁRIA**\n"
-                    relatorio += "- Alto percentual de legendas com problemas\n"
-                    relatorio += "- Recomendado recriar ou revisar completamente as legendas\n"
-                elif estatisticas.get('percentual_problemas', 0) > 10:
-                    relatorio += "🟡 **REVISÃO RECOMENDADA**\n"
-                    relatorio += "- Percentual moderado de problemas\n"
-                    relatorio += "- Focar nas legendas com maior gravidade\n"
-                else:
-                    relatorio += "🟢 **QUALIDADE SATISFATÓRIA**\n"
-                    relatorio += "- Baixo percentual de problemas\n"
-                    relatorio += "- Apenas ajustes pontuais necessários\n"
-                
-                # Recomendações específicas
-                problemas_temporais = [p for p in problemas if p['tipo'] == 'TEMPORAL']
-                problemas_conteudo = [p for p in problemas if p['tipo'] == 'CONTEÚDO']
-                
-                if problemas_temporais:
-                    relatorio += f"\n**⏰ Ajustes Temporais:**\n"
-                    relatorio += f"- {len(problemas_temporais)} legendas com problemas de timing\n"
-                    relatorio += "- Verificar sincronização nos pontos críticos\n"
-                
-                if problemas_conteudo:
-                    relatorio += f"\n**📝 Ajustes de Conteúdo:**\n"
-                    relatorio += f"- {len(problemas_conteudo)} legendas com diferenças textuais\n"
-                    relatorio += "- Revisar a transcrição manualmente\n"
-                
-                # Métricas de qualidade
-                relatorio += f"\n## 📈 MÉTRICAS DE QUALIDADE\n\n"
-                relatorio += f"**Score de Sincronização:** {estatisticas.get('score_sincronizacao', 0)}/10\n"
-                relatorio += f"**Score de Conteúdo:** {estatisticas.get('score_conteudo', 0)}/10\n"
-                relatorio += f"**Score Geral:** {estatisticas.get('score_geral', 0)}/10\n"
-                
-                relatorio += "\n---\n"
-                relatorio += "*Relatório gerado automaticamente pelo Sistema de Batimento de Legendas*"
-                
-                return relatorio
-            
-            # Botão para executar análise
-            if st.button("🔍 Executar Batimento de Legendas", type="primary", key="executar_batimento"):
-                if not uploaded_video_batimento:
-                    st.error("❌ Por favor, carregue um vídeo para análise")
-                elif not uploaded_srt:
-                    st.error("❌ Por favor, carregue um arquivo de legendas (SRT)")
-                else:
-                    with st.spinner("Processando vídeo e legendas..."):
-                        try:
-                            # 1. Analisar arquivo SRT
-                            srt_content = uploaded_srt.read().decode('utf-8', errors='ignore')
-                            legendas = analisar_arquivo_srt(srt_content)
+                        if sobrepoe:
+                            distancia_inicio = abs(tempo_legenda - inicio_segmento)
+                            distancia_fim = abs(tempo_legenda - fim_segmento)
+                            distancia_min = min(distancia_inicio, distancia_fim)
                             
-                            if not legendas:
-                                st.error("❌ Não foi possível extrair legendas do arquivo SRT")
+                            segmentos_correspondentes.append({
+                                'segmento': segmento,
+                                'distancia_temporal': distancia_min,
+                                'texto': texto_segmento
+                            })
+                    
+                    if segmentos_correspondentes:
+                        segmentos_correspondentes.sort(key=lambda x: x['distancia_temporal'])
+                        melhor_segmento = segmentos_correspondentes[0]
+                        texto_transcricao = melhor_segmento['texto']
+                        
+                        similaridade = calcular_similaridade_texto(texto_legenda, texto_transcricao)
+                        distancia_temporal = melhor_segmento['distancia_temporal']
+                        
+                        resultado = {
+                            'tempo_legenda': tempo_legenda,
+                            'frame_num': legenda['frame_num'],
+                            'texto_legenda': legenda['texto'],
+                            'texto_transcricao': texto_transcricao,
+                            'similaridade': similaridade,
+                            'distancia_temporal': distancia_temporal,
+                            'esta_sincronizado': distancia_temporal <= sensibilidade
+                        }
+                        
+                        if similaridade < 0.6:
+                            problemas.append({
+                                'tipo': 'CONTEÚDO',
+                                'tempo': f"{tempo_legenda:.1f}s",
+                                'frame': legenda['frame_num'],
+                                'descricao': f"Diferença textual (similaridade: {similaridade:.0%})",
+                                'gravidade': 'ALTA' if similaridade < 0.4 else 'MÉDIA'
+                            })
+                        
+                        if distancia_temporal > sensibilidade:
+                            problemas.append({
+                                'tipo': 'TEMPORAL',
+                                'tempo': f"{tempo_legenda:.1f}s",
+                                'frame': legenda['frame_num'],
+                                'descricao': f"Fora de sincronia: {distancia_temporal:.1f}s",
+                                'gravidade': 'ALTA' if distancia_temporal > 2 else 'MÉDIA'
+                            })
+                        
+                        resultados.append(resultado)
+                    else:
+                        problemas.append({
+                            'tipo': 'TEMPORAL',
+                            'tempo': f"{tempo_legenda:.1f}s",
+                            'frame': legenda['frame_num'],
+                            'descricao': f"Sem transcrição próxima",
+                            'gravidade': 'MÉDIA'
+                        })
+                        
+                        resultados.append({
+                            'tempo_legenda': tempo_legenda,
+                            'frame_num': legenda['frame_num'],
+                            'texto_legenda': legenda['texto'],
+                            'texto_transcricao': "SEM TRANSCRIÇÃO",
+                            'similaridade': 0,
+                            'distancia_temporal': float('inf'),
+                            'esta_sincronizado': False
+                        })
+                
+                return resultados, problemas
+            
+            if st.button("🔍 Analisar Legendas", type="primary", key="executar_batimento"):
+                if not uploaded_video_batimento:
+                    st.error("Carregue um vídeo para análise")
+                else:
+                    with st.spinner("Processando vídeo..."):
+                        try:
+                            video_bytes = uploaded_video_batimento.getvalue()
+                            
+                            frames_info = extrair_frames_video(video_bytes, amostragem_frames)
+                            
+                            if not frames_info:
+                                st.error("Não foi possível extrair frames do vídeo")
                             else:
-                                st.success(f"✅ {len(legendas)} legendas carregadas do arquivo SRT")
+                                legendas_detectadas = detectar_legendas_frames(frames_info, regiao_legendas)
                                 
-                                # 2. Transcrever áudio do vídeo
-                                st.info("🎤 Transcrevendo áudio do vídeo...")
-                                
-                                # Para simulação, usaremos o modelo Gemini para transcrever
-                                # Em produção, você pode usar uma API de transcrição específica
-                                
-                                # Carregar vídeo temporariamente
-                                import tempfile
-                                import os
-                                
-                                with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_video:
-                                    tmp_video.write(uploaded_video_batimento.getvalue())
-                                    video_path = tmp_video.name
-                                
-                                try:
-                                    # Usar Gemini para análise de áudio/vídeo
-                                    prompt_transcricao = f"""
-                                    Analise o áudio deste vídeo e forneça uma transcrição precisa com timestamps.
+                                if not legendas_detectadas:
+                                    st.warning("Nenhuma legenda detectada no vídeo")
+                                else:
+                                    segmentos_transcricao = transcrever_audio_video(video_bytes, linguagem_audio)
                                     
-                                    Instruções:
-                                    1. Transcreva TODO o áudio do vídeo
-                                    2. Inclua timestamps para cada segmento (início e fim em segundos)
-                                    3. Seja preciso na transcrição
-                                    4. Linguagem: {linguagem_audio}
-                                    
-                                    Formato da resposta:
-                                    SEGMENTO 1:
-                                    Tempo: [início]s - [fim]s
-                                    Texto: [transcrição]
-                                    
-                                    SEGMENTO 2:
-                                    Tempo: [início]s - [fim]s
-                                    Texto: [transcrição]
-                                    """
-                                    
-                                    # Usar modelo de visão para análise de vídeo
-                                    response = modelo_vision.generate_content([
-                                        prompt_transcricao,
-                                        {"mime_type": uploaded_video_batimento.type, "data": uploaded_video_batimento.getvalue()}
-                                    ])
-                                    
-                                    # Processar resposta para extrair segmentos
-                                    transcricao_texto = response.text
-                                    
-                                    # Parsear segmentos da transcrição
-                                    segmentos_transcricao = []
-                                    linhas = transcricao_texto.split('\n')
-                                    i = 0
-                                    
-                                    while i < len(linhas):
-                                        if 'SEGMENTO' in linhas[i] or 'Tempo:' in linhas[i]:
-                                            try:
-                                                # Encontrar tempo
-                                                if i+1 < len(linhas) and 'Tempo:' in linhas[i+1]:
-                                                    tempo_linha = linhas[i+1].replace('Tempo:', '').strip()
-                                                    if '-' in tempo_linha:
-                                                        inicio_str, fim_str = tempo_linha.split('-')
-                                                        inicio = float(inicio_str.replace('s', '').strip())
-                                                        fim = float(fim_str.replace('s', '').strip())
-                                                    else:
-                                                        inicio = 0
-                                                        fim = 0
-                                                else:
-                                                    inicio = 0
-                                                    fim = 0
-                                                
-                                                # Encontrar texto
-                                                if i+2 < len(linhas) and 'Texto:' in linhas[i+2]:
-                                                    texto = linhas[i+2].replace('Texto:', '').strip()
-                                                else:
-                                                    texto = ""
-                                                
-                                                if texto:
-                                                    segmentos_transcricao.append({
-                                                        'start': inicio,
-                                                        'end': fim,
-                                                        'text': texto
-                                                    })
-                                                
-                                                i += 3
-                                            except:
-                                                i += 1
-                                        else:
-                                            i += 1
-                                    
-                                    # Se não conseguir extrair segmentos, criar um segmento único
                                     if not segmentos_transcricao:
-                                        segmentos_transcricao.append({
-                                            'start': 0,
-                                            'end': 300,  # Assumir 5 minutos
-                                            'text': transcricao_texto[:1000]  # Limitar texto
-                                        })
-                                    
-                                    st.success(f"✅ {len(segmentos_transcricao)} segmentos de áudio transcritos")
-                                    
-                                    # 3. Comparar legendas com transcrição
-                                    st.info("🔍 Comparando legendas com transcrição...")
-                                    resultados_comparacao, problemas = comparar_legenda_transcricao(
-                                        legendas, 
-                                        segmentos_transcricao, 
-                                        sensibilidade_sincronizacao
-                                    )
-                                    
-                                    # 4. Calcular estatísticas
-                                    estatisticas = {
-                                        'nome_video': uploaded_video_batimento.name,
-                                        'nome_legendas': uploaded_srt.name,
-                                        'total_legendas': len(legendas),
-                                        'legendas_com_problemas': len(problemas),
-                                        'percentual_problemas': (len(problemas) / len(legendas)) * 100 if legendas else 0,
-                                        'similaridade_media': sum(r['similaridade'] for r in resultados_comparacao) / len(resultados_comparacao) if resultados_comparacao else 0,
-                                        'atraso_medio': sum(r['atraso_segundos'] for r in resultados_comparacao) / len(resultados_comparacao) if resultados_comparacao else 0,
-                                        'sensibilidade': sensibilidade_sincronizacao,
-                                        'linguagem': linguagem_audio
-                                    }
-                                    
-                                    # Calcular scores
-                                    score_sincronizacao = max(0, 10 - (estatisticas['atraso_medio'] * 2))
-                                    score_conteudo = estatisticas['similaridade_media'] * 10
-                                    score_geral = (score_sincronizacao + score_conteudo) / 2
-                                    
-                                    estatisticas.update({
-                                        'score_sincronizacao': round(score_sincronizacao, 1),
-                                        'score_conteudo': round(score_conteudo, 1),
-                                        'score_geral': round(score_geral, 1)
-                                    })
-                                    
-                                    # 5. Gerar relatório
-                                    relatorio = gerar_relatorio_batimento(resultados_comparacao, problemas, estatisticas)
-                                    
-                                    # 6. Armazenar resultados
-                                    st.session_state.resultados_batimento_legendas = {
-                                        'relatorio': relatorio,
-                                        'resultados_comparacao': resultados_comparacao,
-                                        'problemas': problemas,
-                                        'estatisticas': estatisticas,
-                                        'legendas': legendas,
-                                        'segmentos_transcricao': segmentos_transcricao
-                                    }
-                                    
-                                    # 7. Exibir resultados
-                                    st.markdown("---")
-                                    st.subheader("📊 Resultados da Análise")
-                                    
-                                    # Métricas principais
-                                    col1, col2, col3, col4 = st.columns(4)
-                                    with col1:
-                                        st.metric("Legendas", estatisticas['total_legendas'])
-                                    with col2:
-                                        st.metric("Com Problemas", estatisticas['legendas_com_problemas'])
-                                    with col3:
-                                        st.metric("Similaridade", f"{estatisticas['similaridade_media']:.2%}")
-                                    with col4:
-                                        st.metric("Score Geral", f"{estatisticas['score_geral']}/10")
-                                    
-                                    # Visualização dos problemas
-                                    st.markdown("### ⚠️ Problemas Identificados")
-                                    
-                                    if problemas:
-                                        # Agrupar por tipo e gravidade
-                                        df_problemas = []
-                                        for problema in problemas:
-                                            df_problemas.append({
-                                                'Legenda': problema['legenda'],
-                                                'Tipo': problema['tipo'],
-                                                'Gravidade': problema['gravidade'],
-                                                'Descrição': problema['descricao']
-                                            })
-                                        
-                                        # Mostrar tabela
-                                        import pandas as pd
-                                        st.dataframe(pd.DataFrame(df_problemas), use_container_width=True)
-                                        
-                                        # Gráfico de distribuição
-                                        if len(problemas) > 0:
-                                            st.markdown("#### 📈 Distribuição de Problemas")
-                                            tipo_counts = {}
-                                            gravidade_counts = {}
-                                            
-                                            for problema in problemas:
-                                                tipo_counts[problema['tipo']] = tipo_counts.get(problema['tipo'], 0) + 1
-                                                gravidade_counts[problema['gravidade']] = gravidade_counts.get(problema['gravidade'], 0) + 1
-                                            
-                                            col_chart1, col_chart2 = st.columns(2)
-                                            with col_chart1:
-                                                st.bar_chart(tipo_counts)
-                                            with col_chart2:
-                                                st.bar_chart(gravidade_counts)
+                                        st.warning("Não foi possível transcrever o áudio")
                                     else:
-                                        st.success("🎉 Nenhum problema crítico encontrado!")
-                                    
-                                    # Análise detalhada (opcional)
-                                    with st.expander("📝 Ver Análise Detalhada por Legenda", expanded=False):
-                                        for resultado in resultados_comparacao[:20]:  # Limitar a 20 para performance
-                                            with st.container():
-                                                col_leg, col_stat = st.columns([3, 1])
-                                                
-                                                with col_leg:
-                                                    st.write(f"**Legenda {resultado['legenda_numero']}**")
-                                                    st.write(f"*Legenda:* {resultado['texto_legenda'][:100]}...")
-                                                    st.write(f"*Transcrição:* {resultado['texto_transcricao'][:100]}...")
-                                                
-                                                with col_stat:
-                                                    if resultado['similaridade'] > 0.8:
-                                                        st.success(f"✅ {resultado['similaridade']:.0%}")
-                                                    elif resultado['similaridade'] > 0.6:
-                                                        st.warning(f"⚠️ {resultado['similaridade']:.0%}")
-                                                    else:
-                                                        st.error(f"❌ {resultado['similaridade']:.0%}")
-                                                    
-                                                    if resultado['atraso_segundos'] > 0:
-                                                        st.caption(f"⏰ {resultado['atraso_segundos']:.1f}s")
-                                                
-                                                st.divider()
-                                    
-                                    # Botões de download
-                                    st.markdown("---")
-                                    st.subheader("📥 Exportar Resultados")
-                                    
-                                    col_dl1, col_dl2, col_dl3 = st.columns(3)
-                                    
-                                    with col_dl1:
-                                        st.download_button(
-                                            "💾 Baixar Relatório Completo (TXT)",
-                                            data=relatorio,
-                                            file_name=f"relatorio_batimento_{uploaded_video_batimento.name.split('.')[0]}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                                            mime="text/plain"
+                                        resultados_comparacao, problemas = comparar_legenda_transcricao_embedded(
+                                            legendas_detectadas, 
+                                            segmentos_transcricao, 
+                                            sensibilidade_sincronizacao
                                         )
-                                    
-                                    with col_dl2:
-                                        # Exportar problemas em CSV
-                                        import pandas as pd
-                                        df_problemas_csv = pd.DataFrame([
-                                            {
-                                                'legenda': p['legenda'],
-                                                'tipo': p['tipo'],
-                                                'gravidade': p['gravidade'],
-                                                'descricao': p['descricao']
-                                            } for p in problemas
-                                        ])
                                         
-                                        csv_problemas = df_problemas_csv.to_csv(index=False)
-                                        st.download_button(
-                                            "📊 Baixar Problemas (CSV)",
-                                            data=csv_problemas,
-                                            file_name=f"problemas_batimento_{uploaded_video_batimento.name.split('.')[0]}.csv",
-                                            mime="text/csv"
-                                        )
-                                    
-                                    with col_dl3:
-                                        # Exportar resultados detalhados
-                                        resultados_detalhados = "\n".join([
-                                            f"Legenda {r['legenda_numero']};"
-                                            f"{r['tempo_legenda']};"
-                                            f"{r['similaridade']:.4f};"
-                                            f"{r['atraso_segundos']:.2f};"
-                                            f"{r['texto_legenda'][:50].replace(';', ',')};"
-                                            f"{r['texto_transcricao'][:50].replace(';', ',')}"
-                                            for r in resultados_comparacao
-                                        ])
+                                        if problemas:
+                                            st.markdown("---")
+                                            st.subheader("⚠️ ERROS ENCONTRADOS")
+                                            
+                                            problemas_temporais = [p for p in problemas if p['tipo'] == 'TEMPORAL']
+                                            problemas_conteudo = [p for p in problemas if p['tipo'] == 'CONTEÚDO']
+                                            
+                                            if problemas_temporais:
+                                                st.markdown("### 🕒 Problemas de Sincronização Temporal")
+                                                for problema in problemas_temporais:
+                                                    st.write(f"**• {problema['tempo']}** (frame {problema['frame']}) - {problema['descricao']}")
+                                            
+                                            if problemas_conteudo:
+                                                st.markdown("### 📝 Problemas de Conteúdo")
+                                                for problema in problemas_conteudo:
+                                                    st.write(f"**• {problema['tempo']}** (frame {problema['frame']}) - {problema['descricao']}")
+                                            
+                                            # Estatísticas
+                                            total_problemas = len(problemas)
+                                            total_legendas = len(legendas_detectadas)
+                                            percentual = (total_problemas / total_legendas * 100) if total_legendas > 0 else 0
+                                            
+                                            st.markdown("---")
+                                            st.subheader("📊 Estatísticas")
+                                            
+                                            col1, col2, col3 = st.columns(3)
+                                            with col1:
+                                                st.metric("Legendas Detectadas", total_legendas)
+                                            with col2:
+                                                st.metric("Erros Encontrados", total_problemas)
+                                            with col3:
+                                                st.metric("Taxa de Erro", f"{percentual:.1f}%")
+                                            
+                                            # Detalhes das comparações
+                                            with st.expander("📋 Detalhes das Comparações"):
+                                                for resultado in resultados_comparacao[:10]:
+                                                    tempo_formatado = f"{resultado['tempo_legenda']:.1f}s"
+                                                    st.write(f"**{tempo_formatado}** (frame {resultado['frame_num']})")
+                                                    st.write(f"Legenda: {resultado['texto_legenda'][:100]}{'...' if len(resultado['texto_legenda']) > 100 else ''}")
+                                                    st.write(f"Transcrição: {resultado['texto_transcricao'][:100]}{'...' if len(resultado['texto_transcricao']) > 100 else ''}")
+                                                    st.write(f"Similaridade: {resultado['similaridade']:.0%} | Sincronizado: {'✅' if resultado['esta_sincronizado'] else '❌'}")
+                                                    st.divider()
+                                            
+                                            # Botão de download
+                                            relatorio = f"RELATÓRIO DE BATIMENTO DE LEGENDAS\n"
+                                            relatorio += f"Arquivo: {uploaded_video_batimento.name}\n"
+                                            relatorio += f"Data: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
+                                            relatorio += f"Legendas detectadas: {total_legendas}\n"
+                                            relatorio += f"Erros encontrados: {total_problemas}\n\n"
+                                            
+                                            if problemas_temporais:
+                                                relatorio += "PROBLEMAS DE SINCRONIZAÇÃO:\n"
+                                                for problema in problemas_temporais:
+                                                    relatorio += f"- {problema['tempo']}: {problema['descricao']}\n"
+                                                relatorio += "\n"
+                                            
+                                            if problemas_conteudo:
+                                                relatorio += "PROBLEMAS DE CONTEÚDO:\n"
+                                                for problema in problemas_conteudo:
+                                                    relatorio += f"- {problema['tempo']}: {problema['descricao']}\n"
+                                                relatorio += "\n"
+                                            
+                                            relatorio += "DETALHES:\n"
+                                            for resultado in resultados_comparacao:
+                                                tempo_formatado = f"{resultado['tempo_legenda']:.1f}s"
+                                                relatorio += f"{tempo_formatado}: Legenda='{resultado['texto_legenda'][:50]}' | Similaridade={resultado['similaridade']:.0%} | Sincronizado={'SIM' if resultado['esta_sincronizado'] else 'NÃO'}\n"
+                                            
+                                            st.download_button(
+                                                "📥 Baixar Relatório",
+                                                data=relatorio,
+                                                file_name=f"relatorio_batimento_{uploaded_video_batimento.name.split('.')[0]}.txt",
+                                                mime="text/plain"
+                                            )
                                         
-                                        cabecalho = "Legenda;Timing;Similaridade;Atraso(s);Texto Legenda (resumo);Texto Transcrição (resumo)\n"
-                                        st.download_button(
-                                            "📋 Baixar Dados Detalhados (CSV)",
-                                            data=cabecalho + resultados_detalhados,
-                                            file_name=f"detalhes_batimento_{uploaded_video_batimento.name.split('.')[0]}.csv",
-                                            mime="text/csv"
-                                        )
-                                
-                                finally:
-                                    # Limpar arquivo temporário
-                                    try:
-                                        os.unlink(video_path)
-                                    except:
-                                        pass
-                                
+                                        else:
+                                            st.success("✅ Nenhum erro encontrado! Legendas perfeitamente sincronizadas.")
+                        
                         except Exception as e:
-                            st.error(f"❌ Erro durante a análise: {str(e)}")
-                            st.info("💡 Dica: Verifique se os arquivos não estão corrompidos e tente novamente.")
-            
-            # Mostrar análises anteriores se existirem
-            elif 'resultados_batimento_legendas' in st.session_state and st.session_state.resultados_batimento_legendas:
-                st.info("📋 Análise anterior encontrada. Carregue novos arquivos para nova análise.")
-                
-                resultados = st.session_state.resultados_batimento_legendas
-                
-                # Resumo rápido
-                st.subheader("📊 Resumo da Análise Anterior")
-                
-                col_prev1, col_prev2, col_prev3, col_prev4 = st.columns(4)
-                with col_prev1:
-                    st.metric("Legendas", resultados['estatisticas']['total_legendas'])
-                with col_prev2:
-                    st.metric("Problemas", resultados['estatisticas']['legendas_com_problemas'])
-                with col_prev3:
-                    st.metric("Similaridade", f"{resultados['estatisticas']['similaridade_media']:.2%}")
-                with col_prev4:
-                    st.metric("Score", f"{resultados['estatisticas']['score_geral']}/10")
-                
-                # Botão para ver relatório completo
-                with st.expander("📄 Ver Relatório Completo Anterior"):
-                    st.markdown(resultados['relatorio'])
-            
-            else:
-                # Instruções de uso
-                st.info("""
-                **📋 Como usar o Batimento de Legendas:**
-                
-                1. **Carregue o vídeo** para análise de áudio
-                2. **Carregue o arquivo de legendas** (formato SRT)
-                3. **Configure** a sensibilidade e linguagem
-                4. **Clique em "Executar Batimento de Legendas"**
-                5. **Revise** o relatório detalhado
-                6. **Baixe** os resultados para correção
-                
-                **🎯 O que é analisado:**
-                - ✅ **Sincronização temporal**: Timing das legendas vs áudio
-                - ✅ **Correspondência textual**: O que está escrito vs o que é falado
-                - ✅ **Erros de transcrição**: Palavras ou frases incorretas
-                - ✅ **Atrasos/Adiantamentos**: Legendas fora do tempo correto
-                
-                **📊 Métricas calculadas:**
-                - Score de sincronização (0-10)
-                - Score de conteúdo (0-10)
-                - Score geral (0-10)
-                - Percentual de legendas com problemas
-                - Similaridade média entre legenda e transcrição
-                
-                **💡 Dicas:**
-                - Use arquivos SRT gerados por serviços profissionais
-                - Para vídeos longos, a análise pode levar alguns minutos
-                - Ajuste a sensibilidade conforme a precisão necessária
-                - Revise manualmente as legendas com score baixo
-                """)
+                            st.error(f"Erro durante a análise: {str(e)}")
         
         # --- SUBTAB: VALIDAÇÃO DE TEXTO EM IMAGEM ---
         with subtab_texto_imagem:
