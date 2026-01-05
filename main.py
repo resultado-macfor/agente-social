@@ -3439,475 +3439,157 @@ with tab_mapping["✅ Validação Unificada"]:
         
         # --- SUBTAB: BATIMENTO DE LEGENDAS ---
         with subtab_batimento_legendas:
-            st.subheader("🎧 Batimento de Legendas Embutidas")
+            st.subheader("🎧 Análise de Legendas em Vídeo")
+            st.write("Verifica se as legendas embutidas no vídeo batem com o áudio.")
             
-            col_upload, col_config = st.columns([2, 1])
+            # Botão para limpar análises anteriores
+            if st.button("🗑️ Limpar Análises Anteriores", key="limpar_analises_legendas"):
+                st.session_state.resultados_analise_legendas = []
+                st.rerun()
             
-            with col_upload:
-                uploaded_video_batimento = st.file_uploader(
-                    "Carregue o vídeo com legendas embutidas:",
-                    type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
-                    key="video_batimento_upload"
-                )
-                
-                if uploaded_video_batimento:
-                    st.video(uploaded_video_batimento, format=f"video/{uploaded_video_batimento.type.split('/')[-1]}")
-                
-            with col_config:
-                sensibilidade_sincronizacao = st.slider(
-                    "Sensibilidade (segundos):",
-                    min_value=0.5,
-                    max_value=3.0,
-                    value=1.0,
-                    step=0.5
-                )
-                
-                linguagem_audio = st.selectbox(
-                    "Linguagem do áudio:",
-                    ["pt-BR", "pt-PT", "en-US", "en-GB", "es-ES"],
-                    index=0
-                )
-                
-                regiao_legendas = st.selectbox(
-                    "Região das legendas:",
-                    ["Inferior", "Superior", "Personalizada", "Auto-detect"],
-                    index=0
-                )
-                
-                amostragem_frames = st.slider(
-                    "Frames por segundo:",
-                    min_value=1,
-                    max_value=10,
-                    value=3
-                )
+            # Upload de vídeos
+            uploaded_videos_legendas = st.file_uploader(
+                "Carregue vídeo(s) para análise de legendas:",
+                type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
+                key="video_legendas_upload",
+                accept_multiple_files=True
+            )
             
-            def extrair_frames_video(video_bytes, fps_amostragem=3):
-                frames_info = []
+            if uploaded_videos_legendas:
+                st.success(f"✅ {len(uploaded_videos_legendas)} vídeo(s) carregado(s)")
                 
-                try:
-                    import tempfile
-                    import cv2
-                    import os
-                    
-                    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_video:
-                        tmp_video.write(video_bytes)
-                        video_path = tmp_video.name
-                    
-                    try:
-                        cap = cv2.VideoCapture(video_path)
-                        fps_original = cap.get(cv2.CAP_PROP_FPS)
-                        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-                        
-                        intervalo_frames = max(1, int(fps_original / fps_amostragem))
-                        
-                        frame_count = 0
-                        frames_processados = 0
-                        
-                        while cap.isOpened() and frames_processados < 100:
-                            ret, frame = cap.read()
-                            
-                            if not ret:
-                                break
-                            
-                            if frame_count % intervalo_frames == 0:
-                                tempo_atual = frame_count / fps_original
-                                
-                                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                                _, buffer = cv2.imencode('.jpg', frame)
-                                frame_bytes = buffer.tobytes()
-                                
-                                frames_info.append({
-                                    'frame_num': frame_count,
-                                    'tempo_segundos': tempo_atual,
-                                    'frame_bytes': frame_bytes,
-                                    'altura': frame.shape[0],
-                                    'largura': frame.shape[1]
-                                })
-                                
-                                frames_processados += 1
-                            
-                            frame_count += 1
-                        
-                        cap.release()
-                        
-                    finally:
-                        try:
-                            os.unlink(video_path)
-                        except:
-                            pass
-                    
-                except Exception as e:
-                    st.error(f"Erro ao extrair frames: {str(e)}")
+                # Configurações simples
+                col1, col2 = st.columns(2)
+                with col1:
+                    linguagem_audio = st.selectbox(
+                        "Linguagem do áudio:",
+                        ["pt-BR", "pt-PT", "en-US", "en-GB", "es-ES"],
+                        index=0
+                    )
+                with col2:
+                    sensibilidade = st.slider(
+                        "Sensibilidade (segundos):",
+                        min_value=0.5,
+                        max_value=5.0,
+                        value=2.0,
+                        step=0.5,
+                        help="Tolerância para considerar que legenda e áudio estão sincronizados"
+                    )
                 
-                return frames_info
-            
-            def detectar_legendas_frames(frames_info, regiao="Inferior"):
-                legendas_detectadas = []
-                
-                for idx, frame_info in enumerate(frames_info):
-                    try:
-                        prompt_deteccao = f"""
-                        Analise este frame de vídeo e DETECTE SE HÁ LEGENDAS VISÍVEIS.
-                        
-                        Procure por texto que pareça ser legenda.
-                        Se encontrar, transcreva TODO o texto visível.
-                        
-                        Formato:
-                        LEGENDA DETECTADA: [SIM/NÃO]
-                        
-                        Se SIM:
-                        TEMPO: [tempo_em_segundos]s
-                        TEXTO: "[texto_da_legenda]"
-                        POSIÇÃO: [superior/meio/inferior]
-                        
-                        Se NÃO:
-                        RAZÃO: [sem legenda visível]
-                        """
-                        
-                        response = modelo_vision.generate_content([
-                            prompt_deteccao,
-                            {"mime_type": "image/jpeg", "data": frame_info['frame_bytes']}
-                        ])
-                        
-                        resposta = response.text
-                        
-                        if "LEGENDA DETECTADA: SIM" in resposta:
-                            linhas = resposta.split('\n')
-                            texto_legenda = ""
-                            posicao = ""
-                            
-                            for linha in linhas:
-                                if "TEXTO:" in linha:
-                                    texto_legenda = linha.split("TEXTO:")[1].strip().strip('"')
-                                elif "POSIÇÃO:" in linha:
-                                    posicao = linha.split("POSIÇÃO:")[1].strip()
-                            
-                            if texto_legenda and len(texto_legenda) > 2:
-                                legendas_detectadas.append({
-                                    'tempo_segundos': frame_info['tempo_segundos'],
-                                    'frame_num': frame_info['frame_num'],
-                                    'texto': texto_legenda,
-                                    'posicao': posicao
-                                })
+                # Botão para analisar
+                if st.button("🔍 Analisar Sincronização de Legendas", type="primary", key="analisar_legendas"):
                     
-                    except Exception as e:
-                        continue
-                
-                return legendas_detectadas
-            
-            def transcrever_audio_video(video_bytes, linguagem="pt-BR"):
-                try:
-                    prompt_transcricao = f"""
-                    Analise o áudio deste vídeo e forneça uma transcrição precisa com timestamps.
+                    resultados_legendas = []
                     
-                    INSTRUÇÕES:
-                    1. Transcreva TODO o áudio do vídeo
-                    2. Inclua timestamps para cada segmento (início e fim em segundos)
-                    3. Seja PRECISO na transcrição
-                    4. Linguagem: {linguagem}
-                    
-                    FORMATO:
-                    SEGMENTO 1:
-                    TEMPO: [início]s - [fim]s
-                    TEXTO: "[transcrição]"
-                    
-                    SEGMENTO 2:
-                    TEMPO: [início]s - [fim]s
-                    TEXTO: "[transcrição]"
-                    """
-                    
-                    response = modelo_vision.generate_content([
-                        prompt_transcricao,
-                        {"mime_type": "video/mp4", "data": video_bytes}
-                    ])
-                    
-                    transcricao_texto = response.text
-                    segmentos_transcricao = []
-                    linhas = transcricao_texto.split('\n')
-                    i = 0
-                    
-                    while i < len(linhas):
-                        if 'SEGMENTO' in linhas[i] or 'TEMPO:' in linhas[i]:
+                    for idx, uploaded_video in enumerate(uploaded_videos_legendas):
+                        with st.spinner(f'Analisando legendas no vídeo {idx+1} de {len(uploaded_videos_legendas)}: {uploaded_video.name}...'):
                             try:
-                                tempo_linha = ""
-                                if i+1 < len(linhas) and 'TEMPO:' in linhas[i+1]:
-                                    tempo_linha = linhas[i+1]
-                                elif 'TEMPO:' in linhas[i]:
-                                    tempo_linha = linhas[i]
+                                # Criar prompt específico para análise de legendas
+                                prompt_legendas = f"""
+                                Analise este vídeo e verifique se as legendas embutidas (texto visível no vídeo) estão sincronizadas com o áudio.
                                 
-                                if tempo_linha and '-' in tempo_linha:
-                                    tempo_parte = tempo_linha.split('TEMPO:')[1].strip() if 'TEMPO:' in tempo_linha else tempo_linha
-                                    if '-' in tempo_parte:
-                                        inicio_str, fim_str = tempo_parte.split('-')
-                                        inicio = float(inicio_str.replace('s', '').strip())
-                                        fim = float(fim_str.replace('s', '').strip())
-                                    else:
-                                        inicio = 0
-                                        fim = 0
-                                else:
-                                    inicio = 0
-                                    fim = 0
+                                INSTRUÇÕES:
+                                1. Detecte todas as legendas visíveis no vídeo
+                                2. Transcreva o áudio do vídeo com timestamps
+                                3. Compare o texto das legendas com a transcrição do áudio
+                                4. Identifique onde NÃO estão batendo (diferenças textuais ou de timing)
                                 
-                                texto = ""
-                                if i+2 < len(linhas) and 'TEXTO:' in linhas[i+2]:
-                                    texto = linhas[i+2].split('TEXTO:')[1].strip().strip('"')
-                                elif i+1 < len(linhas) and 'TEXTO:' in linhas[i+1]:
-                                    texto = linhas[i+1].split('TEXTO:')[1].strip().strip('"')
+                                LINGUAGEM DO ÁUDIO: {linguagem_audio}
+                                TOLERÂNCIA DE SINCRONIZAÇÃO: {sensibilidade} segundos
                                 
-                                if texto and len(texto.strip()) > 3:
-                                    segmentos_transcricao.append({
-                                        'start': inicio,
-                                        'end': fim,
-                                        'text': texto.strip()
-                                    })
+                                FORMATO DA RESPOSTA:
+                                ## 🎬 {uploaded_video.name}
                                 
-                                i += 3
-                            except:
-                                i += 1
-                        else:
-                            i += 1
+                                ### 📋 RESUMO DA ANÁLISE
+                                [Resumo geral da sincronização]
+                                
+                                ### ❌ PROBLEMAS ENCONTRADOS
+                                [Lista os problemas encontrados com MARCADORES DE TEMPO]
+                                
+                                ### ✅ PARTES CORRETAS
+                                [Partes onde legenda e áudio estão sincronizados]
+                                
+                                ### 🎯 RECOMENDAÇÕES
+                                [Sugestões para corrigir os problemas]
+                                
+                                **IMPORTANTE:** Para cada problema, inclua o MARCADOR DE TEMPO aproximado (ex: 00:45, 1:30, 2:15)
+                                """
+                                
+                                # Usar modelo de visão para análise
+                                response = modelo_vision.generate_content([
+                                    prompt_legendas,
+                                    {"mime_type": uploaded_video.type, "data": uploaded_video.getvalue()}
+                                ])
+                                
+                                resultados_legendas.append({
+                                    'nome': uploaded_video.name,
+                                    'indice': idx,
+                                    'analise': response.text,
+                                    'tem_problemas': '❌' in response.text or 'PROBLEMAS' in response.text or 'não está batendo' in response.text.lower()
+                                })
+                                
+                            except Exception as e:
+                                resultados_legendas.append({
+                                    'nome': uploaded_video.name,
+                                    'indice': idx,
+                                    'analise': f"❌ Erro na análise: {str(e)}",
+                                    'tem_problemas': True
+                                })
                     
-                    if not segmentos_transcricao:
-                        import re
-                        padrao_tempo = r'(\d+\.?\d*)s\s*[-–]\s*(\d+\.?\d*)s'
-                        padrao_texto = r'["](.*?)["]'
+                    # Armazenar resultados na sessão
+                    st.session_state.resultados_analise_legendas = resultados_legendas
+                    
+                    # Exibir resultados
+                    st.markdown("---")
+                    st.subheader("📊 Resultados da Análise")
+                    
+                    # Vídeos com problemas
+                    videos_com_problemas = [r for r in resultados_legendas if r['tem_problemas']]
+                    
+                    if videos_com_problemas:
+                        st.error(f"⚠️ {len(videos_com_problemas)} vídeo(s) com problemas de sincronização encontrados")
                         
-                        tempos = re.findall(padrao_tempo, transcricao_texto)
-                        textos = re.findall(padrao_texto, transcricao_texto)
+                        for resultado in videos_com_problemas:
+                            with st.expander(f"🎬 {resultado['nome']} - Problemas Detectados", expanded=True):
+                                st.markdown(resultado['analise'])
+                    
+                    # Vídeos sem problemas
+                    videos_sem_problemas = [r for r in resultados_legendas if not r['tem_problemas']]
+                    
+                    if videos_sem_problemas:
+                        st.success(f"✅ {len(videos_sem_problemas)} vídeo(s) com legendas sincronizadas")
                         
-                        for idx, (inicio_str, fim_str) in enumerate(tempos):
-                            if idx < len(textos):
-                                try:
-                                    inicio = float(inicio_str)
-                                    fim = float(fim_str)
-                                    texto = textos[idx]
-                                    
-                                    if texto and len(texto.strip()) > 3:
-                                        segmentos_transcricao.append({
-                                            'start': inicio,
-                                            'end': fim,
-                                            'text': texto.strip()
-                                        })
-                                except:
-                                    continue
+                        for resultado in videos_sem_problemas:
+                            with st.expander(f"🎬 {resultado['nome']} - Análise Completa", expanded=False):
+                                st.markdown(resultado['analise'])
                     
-                    return segmentos_transcricao
-                    
-                except Exception as e:
-                    return []
+                    # Estatísticas
+                    col_stat1, col_stat2, col_stat3 = st.columns(3)
+                    with col_stat1:
+                        st.metric("Vídeos Analisados", len(uploaded_videos_legendas))
+                    with col_stat2:
+                        st.metric("Com Problemas", len(videos_com_problemas))
+                    with col_stat3:
+                        percentual = (len(videos_com_problemas) / len(uploaded_videos_legendas) * 100) if uploaded_videos_legendas else 0
+                        st.metric("% com Problemas", f"{percentual:.1f}%")
             
-            def calcular_similaridade_texto(texto1, texto2):
-                import difflib
-                import string
+            # Mostrar análises anteriores se existirem
+            elif 'resultados_analise_legendas' in st.session_state and st.session_state.resultados_analise_legendas:
+                st.info("📋 Análises anteriores encontradas. Carregue novos vídeos para nova análise.")
                 
-                texto1 = str(texto1).lower().strip()
-                texto2 = str(texto2).lower().strip()
+                resultados = st.session_state.resultados_analise_legendas
                 
-                if not texto1 or not texto2:
-                    return 0.0
+                videos_com_problemas = [r for r in resultados if r['tem_problemas']]
                 
-                texto1 = texto1.translate(str.maketrans('', '', string.punctuation))
-                texto2 = texto2.translate(str.maketrans('', '', string.punctuation))
-                
-                similaridade = difflib.SequenceMatcher(None, texto1, texto2).ratio()
-                return similaridade
-            
-            def comparar_legenda_transcricao_embedded(legendas_detectadas, segmentos_transcricao, sensibilidade=1.0):
-                resultados = []
-                problemas = []
-                
-                for legenda in legendas_detectadas:
-                    tempo_legenda = legenda['tempo_segundos']
-                    texto_legenda = legenda['texto'].lower()
+                if videos_com_problemas:
+                    st.warning(f"{len(videos_com_problemas)} vídeo(s) com problemas na análise anterior")
                     
-                    segmentos_correspondentes = []
-                    for segmento in segmentos_transcricao:
-                        inicio_segmento = segmento.get('start', 0)
-                        fim_segmento = segmento.get('end', 0)
-                        texto_segmento = segmento.get('text', '').lower()
-                        
-                        tempo_min = tempo_legenda - 2
-                        tempo_max = tempo_legenda + 2
-                        
-                        sobrepoe = not (tempo_max < inicio_segmento or tempo_min > fim_segmento)
-                        
-                        if sobrepoe:
-                            distancia_inicio = abs(tempo_legenda - inicio_segmento)
-                            distancia_fim = abs(tempo_legenda - fim_segmento)
-                            distancia_min = min(distancia_inicio, distancia_fim)
-                            
-                            segmentos_correspondentes.append({
-                                'segmento': segmento,
-                                'distancia_temporal': distancia_min,
-                                'texto': texto_segmento
-                            })
-                    
-                    if segmentos_correspondentes:
-                        segmentos_correspondentes.sort(key=lambda x: x['distancia_temporal'])
-                        melhor_segmento = segmentos_correspondentes[0]
-                        texto_transcricao = melhor_segmento['texto']
-                        
-                        similaridade = calcular_similaridade_texto(texto_legenda, texto_transcricao)
-                        distancia_temporal = melhor_segmento['distancia_temporal']
-                        
-                        resultado = {
-                            'tempo_legenda': tempo_legenda,
-                            'frame_num': legenda['frame_num'],
-                            'texto_legenda': legenda['texto'],
-                            'texto_transcricao': texto_transcricao,
-                            'similaridade': similaridade,
-                            'distancia_temporal': distancia_temporal,
-                            'esta_sincronizado': distancia_temporal <= sensibilidade
-                        }
-                        
-                        if similaridade < 0.6:
-                            problemas.append({
-                                'tipo': 'CONTEÚDO',
-                                'tempo': f"{tempo_legenda:.1f}s",
-                                'frame': legenda['frame_num'],
-                                'descricao': f"Diferença textual (similaridade: {similaridade:.0%})",
-                                'gravidade': 'ALTA' if similaridade < 0.4 else 'MÉDIA'
-                            })
-                        
-                        if distancia_temporal > sensibilidade:
-                            problemas.append({
-                                'tipo': 'TEMPORAL',
-                                'tempo': f"{tempo_legenda:.1f}s",
-                                'frame': legenda['frame_num'],
-                                'descricao': f"Fora de sincronia: {distancia_temporal:.1f}s",
-                                'gravidade': 'ALTA' if distancia_temporal > 2 else 'MÉDIA'
-                            })
-                        
-                        resultados.append(resultado)
-                    else:
-                        problemas.append({
-                            'tipo': 'TEMPORAL',
-                            'tempo': f"{tempo_legenda:.1f}s",
-                            'frame': legenda['frame_num'],
-                            'descricao': f"Sem transcrição próxima",
-                            'gravidade': 'MÉDIA'
-                        })
-                        
-                        resultados.append({
-                            'tempo_legenda': tempo_legenda,
-                            'frame_num': legenda['frame_num'],
-                            'texto_legenda': legenda['texto'],
-                            'texto_transcricao': "SEM TRANSCRIÇÃO",
-                            'similaridade': 0,
-                            'distancia_temporal': float('inf'),
-                            'esta_sincronizado': False
-                        })
-                
-                return resultados, problemas
+                    for resultado in videos_com_problemas:
+                        with st.expander(f"🎬 {resultado['nome']} - Análise Anterior", expanded=False):
+                            st.markdown(resultado['analise'])
             
-            if st.button("🔍 Analisar Legendas", type="primary", key="executar_batimento"):
-                if not uploaded_video_batimento:
-                    st.error("Carregue um vídeo para análise")
-                else:
-                    with st.spinner("Processando vídeo..."):
-                        try:
-                            video_bytes = uploaded_video_batimento.getvalue()
-                            
-                            frames_info = extrair_frames_video(video_bytes, amostragem_frames)
-                            
-                            if not frames_info:
-                                st.error("Não foi possível extrair frames do vídeo")
-                            else:
-                                legendas_detectadas = detectar_legendas_frames(frames_info, regiao_legendas)
-                                
-                                if not legendas_detectadas:
-                                    st.warning("Nenhuma legenda detectada no vídeo")
-                                else:
-                                    segmentos_transcricao = transcrever_audio_video(video_bytes, linguagem_audio)
-                                    
-                                    if not segmentos_transcricao:
-                                        st.warning("Não foi possível transcrever o áudio")
-                                    else:
-                                        resultados_comparacao, problemas = comparar_legenda_transcricao_embedded(
-                                            legendas_detectadas, 
-                                            segmentos_transcricao, 
-                                            sensibilidade_sincronizacao
-                                        )
-                                        
-                                        if problemas:
-                                            st.markdown("---")
-                                            st.subheader("⚠️ ERROS ENCONTRADOS")
-                                            
-                                            problemas_temporais = [p for p in problemas if p['tipo'] == 'TEMPORAL']
-                                            problemas_conteudo = [p for p in problemas if p['tipo'] == 'CONTEÚDO']
-                                            
-                                            if problemas_temporais:
-                                                st.markdown("### 🕒 Problemas de Sincronização Temporal")
-                                                for problema in problemas_temporais:
-                                                    st.write(f"**• {problema['tempo']}** (frame {problema['frame']}) - {problema['descricao']}")
-                                            
-                                            if problemas_conteudo:
-                                                st.markdown("### 📝 Problemas de Conteúdo")
-                                                for problema in problemas_conteudo:
-                                                    st.write(f"**• {problema['tempo']}** (frame {problema['frame']}) - {problema['descricao']}")
-                                            
-                                            # Estatísticas
-                                            total_problemas = len(problemas)
-                                            total_legendas = len(legendas_detectadas)
-                                            percentual = (total_problemas / total_legendas * 100) if total_legendas > 0 else 0
-                                            
-                                            st.markdown("---")
-                                            st.subheader("📊 Estatísticas")
-                                            
-                                            col1, col2, col3 = st.columns(3)
-                                            with col1:
-                                                st.metric("Legendas Detectadas", total_legendas)
-                                            with col2:
-                                                st.metric("Erros Encontrados", total_problemas)
-                                            with col3:
-                                                st.metric("Taxa de Erro", f"{percentual:.1f}%")
-                                            
-                                            # Detalhes das comparações
-                                            with st.expander("📋 Detalhes das Comparações"):
-                                                for resultado in resultados_comparacao[:10]:
-                                                    tempo_formatado = f"{resultado['tempo_legenda']:.1f}s"
-                                                    st.write(f"**{tempo_formatado}** (frame {resultado['frame_num']})")
-                                                    st.write(f"Legenda: {resultado['texto_legenda'][:100]}{'...' if len(resultado['texto_legenda']) > 100 else ''}")
-                                                    st.write(f"Transcrição: {resultado['texto_transcricao'][:100]}{'...' if len(resultado['texto_transcricao']) > 100 else ''}")
-                                                    st.write(f"Similaridade: {resultado['similaridade']:.0%} | Sincronizado: {'✅' if resultado['esta_sincronizado'] else '❌'}")
-                                                    st.divider()
-                                            
-                                            # Botão de download
-                                            relatorio = f"RELATÓRIO DE BATIMENTO DE LEGENDAS\n"
-                                            relatorio += f"Arquivo: {uploaded_video_batimento.name}\n"
-                                            relatorio += f"Data: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}\n"
-                                            relatorio += f"Legendas detectadas: {total_legendas}\n"
-                                            relatorio += f"Erros encontrados: {total_problemas}\n\n"
-                                            
-                                            if problemas_temporais:
-                                                relatorio += "PROBLEMAS DE SINCRONIZAÇÃO:\n"
-                                                for problema in problemas_temporais:
-                                                    relatorio += f"- {problema['tempo']}: {problema['descricao']}\n"
-                                                relatorio += "\n"
-                                            
-                                            if problemas_conteudo:
-                                                relatorio += "PROBLEMAS DE CONTEÚDO:\n"
-                                                for problema in problemas_conteudo:
-                                                    relatorio += f"- {problema['tempo']}: {problema['descricao']}\n"
-                                                relatorio += "\n"
-                                            
-                                            relatorio += "DETALHES:\n"
-                                            for resultado in resultados_comparacao:
-                                                tempo_formatado = f"{resultado['tempo_legenda']:.1f}s"
-                                                relatorio += f"{tempo_formatado}: Legenda='{resultado['texto_legenda'][:50]}' | Similaridade={resultado['similaridade']:.0%} | Sincronizado={'SIM' if resultado['esta_sincronizado'] else 'NÃO'}\n"
-                                            
-                                            st.download_button(
-                                                "📥 Baixar Relatório",
-                                                data=relatorio,
-                                                file_name=f"relatorio_batimento_{uploaded_video_batimento.name.split('.')[0]}.txt",
-                                                mime="text/plain"
-                                            )
-                                        
-                                        else:
-                                            st.success("✅ Nenhum erro encontrado! Legendas perfeitamente sincronizadas.")
-                        
-                        except Exception as e:
-                            st.error(f"Erro durante a análise: {str(e)}")
+            else:
+                st.info("🎬 Carregue um ou mais vídeos para analisar a sincronização das legendas com o áudio")
         
         # --- SUBTAB: VALIDAÇÃO DE TEXTO EM IMAGEM ---
         with subtab_texto_imagem:
