@@ -5311,7 +5311,7 @@ Pontos-chave: [lista os principais pontos]""",
                 tom_voz = st.text_area(
                     "Tom de Voz:",
                     placeholder="Ex: Formal e profissional, mas acessível\nOu: Casual e descontraído\nOu: Persuasivo e motivacional",
-                    height=60,
+                  
                     key="tom_voz_textarea",
                     help="Descreva o tom de voz desejado para o conteúdo"
                 )
