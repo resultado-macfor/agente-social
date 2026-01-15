@@ -4751,7 +4751,6 @@ with tab_mapping["✅ Validação Unificada"]:
             else:
                 st.info("🎬 Carregue um ou mais vídeos para iniciar a validação")
                 
-# --- ABA: GERAÇÃO DE CONTEÚDO (COMPLETA COM OPENAI) ---
 with tab_mapping["✨ Geração de Conteúdo"]:
     st.header("✨ Geração de Conteúdo com Múltiplos Insumos")
     
@@ -4833,6 +4832,61 @@ with tab_mapping["✨ Geração de Conteúdo"]:
         except Exception as e:
             return f"❌ Erro ao gerar conteúdo com {modelo_escolhido}: {str(e)}"
 
+    # Função para realizar busca web
+    def realizar_busca_web(termos_busca: str, contexto_agente: str = None) -> str:
+        """Realiza busca web usando a API do Perplexity"""
+        if not perp_api_key:
+            return "❌ API do Perplexity não configurada. A busca web não está disponível."
+        
+        try:
+            headers = {
+                "Authorization": f"Bearer {perp_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # Construir mensagem com contexto
+            mensagem_sistema = contexto_agente if contexto_agente else "Você é um assistente de pesquisa que fornece informações precisas e atualizadas."
+            
+            data = {
+                "model": "sonar-medium-online",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": mensagem_sistema
+                    },
+                    {
+                        "role": "user", 
+                        "content": f"""Realize uma busca na web sobre: {termos_busca}
+                        
+                        Forneça informações:
+                        1. Dados e estatísticas atualizadas
+                        2. Tendências recentes
+                        3. Exemplos práticos
+                        4. Fontes confiáveis
+                        
+                        Seja conciso e factual."""
+                    }
+                ],
+                "max_tokens": 2000,
+                "temperature": 0.0
+            }
+            
+            response = requests.post(
+                "https://api.perplexity.ai/chat/completions",
+                headers=headers,
+                json=data,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                return result['choices'][0]['message']['content']
+            else:
+                return f"❌ Erro na busca web: {response.status_code}"
+                
+        except Exception as e:
+            return f"❌ Erro ao realizar busca web: {str(e)}"
+
     # Função para extrair texto de diferentes tipos de arquivo
     def extrair_texto_arquivo(arquivo):
         """Extrai texto de diferentes formatos de arquivo"""
@@ -4903,325 +4957,389 @@ with tab_mapping["✨ Geração de Conteúdo"]:
         except Exception as e:
             return f"Erro na leitura do Word: {str(e)}"
 
-    # Layout principal
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("📝 Fontes de Conteúdo")
+    # Função para ajuste incremental do conteúdo
+    def ajustar_conteudo_incremental(conteudo_original: str, instrucoes_ajuste: str, modelo_escolhido: str = "Gemini", contexto_agente: str = None) -> str:
+        """Realiza ajustes incrementais no conteúdo mantendo a estrutura original"""
         
-        # Opção 1: Upload de múltiplos arquivos
-        st.write("📎 Upload de Arquivos (PDF, TXT, PPTX, DOCX):")
-        arquivos_upload = st.file_uploader(
-            "Selecione um ou mais arquivos:",
-            type=['pdf', 'txt', 'pptx', 'ppt', 'docx', 'doc'],
-            accept_multiple_files=True,
-            help="Arquivos serão convertidos para texto e usados como base para geração de conteúdo",
-            key="arquivos_conteudo"
-        )
+        prompt_ajuste = f"""
+        CONTEÚDO ORIGINAL:
+        {conteudo_original}
         
-        # Processar arquivos uploadados
-        textos_arquivos = ""
-        if arquivos_upload:
-            st.success(f"✅ {len(arquivos_upload)} arquivo(s) carregado(s)")
+        INSTRUÇÕES DE AJUSTE:
+        {instrucoes_ajuste}
+        
+        DIRETRIZES PARA AJUSTE:
+        1. Mantenha a estrutura geral do conteúdo original
+        2. Preserve o tom de voz e estilo original
+        3. Incorpore as mudanças solicitadas de forma natural
+        4. Não remova informações importantes não mencionadas nas instruções
+        5. Mantenha a consistência com o conteúdo existente
+        
+        FORNECER APENAS O CONTEÚDO AJUSTADO, sem comentários ou explicações adicionais.
+        """
+        
+        try:
+            resposta = gerar_conteudo_modelo(prompt_ajuste, modelo_escolhido, contexto_agente)
+            return resposta
+        except Exception as e:
+            return f"❌ Erro ao ajustar conteúdo: {str(e)}"
+
+    # Layout principal com tabs
+    tab_geracao, tab_ajuste = st.tabs(["📝 Geração de Conteúdo", "✏️ Ajustes Incrementais"])
+
+    with tab_geracao:
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            st.subheader("📝 Fontes de Conteúdo")
             
-            with st.expander("📋 Visualizar Conteúdo dos Arquivos", expanded=False):
-                for i, arquivo in enumerate(arquivos_upload):
-                    st.write(f"**{arquivo.name}** ({arquivo.size} bytes)")
-                    with st.spinner(f"Processando {arquivo.name}..."):
-                        texto_extraido = extrair_texto_arquivo(arquivo)
-                        textos_arquivos += f"\n\n--- CONTEÚDO DE {arquivo.name.upper()} ---\n{texto_extraido}"
-                        
-                        # Mostrar preview
-                        if len(texto_extraido) > 500:
-                            st.text_area(f"Preview - {arquivo.name}", 
-                                       value=texto_extraido[:500] + "...", 
-                                       height=100,
-                                       key=f"preview_{i}")
+            # Opção 1: Upload de múltiplos arquivos
+            st.write("📎 Upload de Arquivos (PDF, TXT, PPTX, DOCX):")
+            arquivos_upload = st.file_uploader(
+                "Selecione um ou mais arquivos:",
+                type=['pdf', 'txt', 'pptx', 'ppt', 'docx', 'doc'],
+                accept_multiple_files=True,
+                help="Arquivos serão convertidos para texto e usados como base para geração de conteúdo",
+                key="arquivos_conteudo"
+            )
+            
+            # Processar arquivos uploadados
+            textos_arquivos = ""
+            if arquivos_upload:
+                st.success(f"✅ {len(arquivos_upload)} arquivo(s) carregado(s)")
+                
+                with st.expander("📋 Visualizar Conteúdo dos Arquivos", expanded=False):
+                    for i, arquivo in enumerate(arquivos_upload):
+                        st.write(f"**{arquivo.name}** ({arquivo.size} bytes)")
+                        with st.spinner(f"Processando {arquivo.name}..."):
+                            texto_extraido = extrair_texto_arquivo(arquivo)
+                            textos_arquivos += f"\n\n--- CONTEÚDO DE {arquivo.name.upper()} ---\n{texto_extraido}"
+                            
+                            # Mostrar preview
+                            if len(texto_extraido) > 500:
+                                st.text_area(f"Preview - {arquivo.name}", 
+                                           value=texto_extraido[:500] + "...", 
+                                           height=100,
+                                           key=f"preview_{i}")
+                            else:
+                                st.text_area(f"Preview - {arquivo.name}", 
+                                           value=texto_extraido, 
+                                           height=100,
+                                           key=f"preview_{i}")
+            
+            # Opção 2: Upload de imagem para geração de legenda
+            st.write("🖼️ Gerar Legenda para Imagem:")
+            imagem_upload = st.file_uploader(
+                "Selecione uma imagem:",
+                type=['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'],
+                help="A legenda será gerada com base na imagem e no contexto do agente selecionado",
+                key="imagem_conteudo"
+            )
+            
+            # Mostrar preview da imagem se carregada
+            if imagem_upload:
+                col_img1, col_img2 = st.columns([1, 2])
+                with col_img1:
+                    st.image(imagem_upload, caption="Imagem Carregada", use_container_width=True)
+                    st.write(f"**Arquivo:** {imagem_upload.name}")
+                    st.write(f"**Tamanho:** {imagem_upload.size / 1024:.1f} KB")
+                
+                with col_img2:
+                    # Configurações específicas para legenda de imagem
+                    st.subheader("Configurações da Legenda")
+                    
+                    estilo_legenda = st.selectbox(
+                        "Estilo da Legenda:",
+                        ["Descritiva", "Criativa", "Técnica", "Comercial", "Emocional", "Storytelling"],
+                        help="Escolha o estilo da legenda a ser gerada",
+                        key="estilo_legenda"
+                    )
+                    
+                    comprimento_legenda = st.select_slider(
+                        "Comprimento da Legenda:",
+                        options=["Curta", "Média", "Longa"],
+                        value="Média",
+                        key="comprimento_legenda"
+                    )
+                    
+                    incluir_hashtags = st.checkbox("Incluir hashtags relevantes", value=True, key="hashtags_legenda")
+                    
+                    # Seletor de modelo para legenda
+                    modelo_legenda = st.selectbox(
+                        "Modelo para gerar legenda:",
+                        ["Gemini", "Claude", "OpenAI"],
+                        help="Escolha o modelo para gerar a legenda",
+                        key="modelo_legenda_select"
+                    )
+                    
+                    # Botão para gerar legenda individual
+                    if st.button("📝 Gerar Legenda para esta Imagem", use_container_width=True, key="gerar_legenda_btn"):
+                        if not st.session_state.agente_selecionado:
+                            st.error("❌ Selecione um agente primeiro para usar seu contexto na geração da legenda")
                         else:
-                            st.text_area(f"Preview - {arquivo.name}", 
-                                       value=texto_extraido, 
-                                       height=100,
-                                       key=f"preview_{i}")
-        
-        # Opção 2: Upload de imagem para geração de legenda
-        st.write("🖼️ Gerar Legenda para Imagem:")
-        imagem_upload = st.file_uploader(
-            "Selecione uma imagem:",
-            type=['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'],
-            help="A legenda será gerada com base na imagem e no contexto do agente selecionado",
-            key="imagem_conteudo"
-        )
-        
-        # Mostrar preview da imagem se carregada
-        if imagem_upload:
-            col_img1, col_img2 = st.columns([1, 2])
-            with col_img1:
-                st.image(imagem_upload, caption="Imagem Carregada", use_container_width=True)
-                st.write(f"**Arquivo:** {imagem_upload.name}")
-                st.write(f"**Tamanho:** {imagem_upload.size / 1024:.1f} KB")
-            
-            with col_img2:
-                # Configurações específicas para legenda de imagem
-                st.subheader("Configurações da Legenda")
-                
-                estilo_legenda = st.selectbox(
-                    "Estilo da Legenda:",
-                    ["Descritiva", "Criativa", "Técnica", "Comercial", "Emocional", "Storytelling"],
-                    help="Escolha o estilo da legenda a ser gerada",
-                    key="estilo_legenda"
-                )
-                
-                comprimento_legenda = st.select_slider(
-                    "Comprimento da Legenda:",
-                    options=["Curta", "Média", "Longa"],
-                    value="Média",
-                    key="comprimento_legenda"
-                )
-                
-                incluir_hashtags = st.checkbox("Incluir hashtags relevantes", value=True, key="hashtags_legenda")
-                
-                # Seletor de modelo para legenda
-                modelo_legenda = st.selectbox(
-                    "Modelo para gerar legenda:",
-                    ["Gemini", "Claude", "OpenAI"],
-                    help="Escolha o modelo para gerar a legenda",
-                    key="modelo_legenda_select"
-                )
-                
-                # Botão para gerar legenda individual
-                if st.button("📝 Gerar Legenda para esta Imagem", use_container_width=True, key="gerar_legenda_btn"):
-                    if not st.session_state.agente_selecionado:
-                        st.error("❌ Selecione um agente primeiro para usar seu contexto na geração da legenda")
-                    else:
-                        with st.spinner("Analisando imagem e gerando legenda..."):
-                            try:
-                                # Preparar contexto do agente
-                                contexto_agente = ""
-                                if st.session_state.agente_selecionado:
-                                    agente = st.session_state.agente_selecionado
-                                    contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
-                                
-                                # Construir prompt para legenda
-                                prompt_legenda = f"""
-                                ## GERAÇÃO DE LEGENDA PARA IMAGEM:
-                                
-                                **ESTILO SOLICITADO:** {estilo_legenda}
-                                **COMPRIMENTO:** {comprimento_legenda}
-                                **INCLUIR HASHTAGS:** {incluir_hashtags}
-                                
-                                ## TAREFA:
-                                Analise a imagem e gere uma legenda que:
-                                
-                                1. **Descreva** accuratamente o conteúdo visual
-                                2. **Contextualize** com base no conhecimento do agente selecionado
-                                3. **Engaje** o público-alvo apropriado
-                                4. **Siga** o estilo {estilo_legenda.lower()}
-                                5. **Tenha** comprimento {comprimento_legenda.lower()}
-                                { "6. **Inclua** hashtags relevantes ao final" if incluir_hashtags else "" }
-                                
-                                Seja criativo mas mantenha a precisão factual.
-                                """
-                                
-                                # Escolher método baseado no modelo selecionado
-                                if modelo_legenda == "Gemini":
-                                    # Usar modelo Gemini Vision
-                                    modelo_visao = genai.GenerativeModel('gemini-2.0-flash')
-                                    resposta_legenda = modelo_visao.generate_content([
-                                        prompt_legenda,
-                                        {"mime_type": imagem_upload.type, "data": imagem_upload.getvalue()}
-                                    ])
-                                    legenda_gerada = resposta_legenda.text
+                            with st.spinner("Analisando imagem e gerando legenda..."):
+                                try:
+                                    # Preparar contexto do agente
+                                    contexto_agente = ""
+                                    if st.session_state.agente_selecionado:
+                                        agente = st.session_state.agente_selecionado
+                                        contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
                                     
-                                elif modelo_legenda == "OpenAI" and openai_client:
-                                    try:
-                                        # Para OpenAI, podemos usar GPT-4o com visão se disponível
-                                        import base64
+                                    # Construir prompt para legenda
+                                    prompt_legenda = f"""
+                                    ## GERAÇÃO DE LEGENDA PARA IMAGEM:
+                                    
+                                    **ESTILO SOLICITADO:** {estilo_legenda}
+                                    **COMPRIMENTO:** {comprimento_legenda}
+                                    **INCLUIR HASHTAGS:** {incluir_hashtags}
+                                    
+                                    ## TAREFA:
+                                    Analise a imagem e gere uma legenda que:
+                                    
+                                    1. **Descreva** accuratamente o conteúdo visual
+                                    2. **Contextualize** com base no conhecimento do agente selecionado
+                                    3. **Engaje** o público-alvo apropriado
+                                    4. **Siga** o estilo {estilo_legenda.lower()}
+                                    5. **Tenha** comprimento {comprimento_legenda.lower()}
+                                    { "6. **Inclua** hashtags relevantes ao final" if incluir_hashtags else "" }
+                                    
+                                    Seja criativo mas mantenha a precisão factual.
+                                    """
+                                    
+                                    # Escolher método baseado no modelo selecionado
+                                    if modelo_legenda == "Gemini":
+                                        # Usar modelo Gemini Vision
+                                        modelo_visao = genai.GenerativeModel('gemini-2.0-flash')
+                                        resposta_legenda = modelo_visao.generate_content([
+                                            prompt_legenda,
+                                            {"mime_type": imagem_upload.type, "data": imagem_upload.getvalue()}
+                                        ])
+                                        legenda_gerada = resposta_legenda.text
                                         
-                                        # Codificar imagem em base64
-                                        encoded_image = base64.b64encode(imagem_upload.getvalue()).decode('utf-8')
-                                        
-                                        response = openai_client.chat.completions.create(
-                                            model="gpt-4o-mini",
-                                            messages=[
-                                                {
-                                                    "role": "system",
-                                                    "content": contexto_agente if contexto_agente else "Você é um especialista em geração de legendas para mídias sociais."
-                                                },
-                                                {
-                                                    "role": "user",
-                                                    "content": [
-                                                        {"type": "text", "text": prompt_legenda},
-                                                        {
-                                                            "type": "image_url",
-                                                            "image_url": {
-                                                                "url": f"data:image/jpeg;base64,{encoded_image}"
+                                    elif modelo_legenda == "OpenAI" and openai_client:
+                                        try:
+                                            # Para OpenAI, podemos usar GPT-4o com visão se disponível
+                                            import base64
+                                            
+                                            # Codificar imagem em base64
+                                            encoded_image = base64.b64encode(imagem_upload.getvalue()).decode('utf-8')
+                                            
+                                            response = openai_client.chat.completions.create(
+                                                model="gpt-4o-mini",
+                                                messages=[
+                                                    {
+                                                        "role": "system",
+                                                        "content": contexto_agente if contexto_agente else "Você é um especialista em geração de legendas para mídias sociais."
+                                                    },
+                                                    {
+                                                        "role": "user",
+                                                        "content": [
+                                                            {"type": "text", "text": prompt_legenda},
+                                                            {
+                                                                "type": "image_url",
+                                                                "image_url": {
+                                                                    "url": f"data:image/jpeg;base64,{encoded_image}"
+                                                                }
                                                             }
-                                                        }
-                                                    ]
-                                                }
-                                            ],
-                                            max_tokens=500
-                                        )
-                                        legenda_gerada = response.choices[0].message.content
+                                                        ]
+                                                    }
+                                                ],
+                                                max_tokens=500
+                                            )
+                                            legenda_gerada = response.choices[0].message.content
+                                            
+                                        except Exception as vision_error:
+                                            # Fallback para apenas texto
+                                            legenda_gerada = gerar_conteudo_modelo(
+                                                f"Gere uma legenda {estilo_legenda.lower()} para uma imagem: {prompt_legenda}",
+                                                "OpenAI",
+                                                contexto_agente
+                                            )
                                         
-                                    except Exception as vision_error:
-                                        # Fallback para apenas texto
+                                    else:
+                                        # Para Claude ou fallback
                                         legenda_gerada = gerar_conteudo_modelo(
                                             f"Gere uma legenda {estilo_legenda.lower()} para uma imagem: {prompt_legenda}",
-                                            "OpenAI",
+                                            modelo_legenda,
                                             contexto_agente
                                         )
                                     
-                                else:
-                                    # Para Claude ou fallback
-                                    legenda_gerada = gerar_conteudo_modelo(
-                                        f"Gere uma legenda {estilo_legenda.lower()} para uma imagem: {prompt_legenda}",
-                                        modelo_legenda,
-                                        contexto_agente
+                                    # Mostrar resultado
+                                    st.success("✅ Legenda gerada com sucesso!")
+                                    st.subheader("Legenda Gerada:")
+                                    st.write(legenda_gerada)
+                                    
+                                    # Salvar no session state para ajustes posteriores
+                                    st.session_state.conteudo_gerado = legenda_gerada
+                                    st.session_state.tipo_conteudo_gerado = "legenda_imagem"
+                                    st.session_state.modelo_utilizado_geracao = modelo_legenda
+                                    
+                                    # Botão para copiar legenda
+                                    st.download_button(
+                                        "📋 Baixar Legenda",
+                                        data=legenda_gerada,
+                                        file_name=f"legenda_{imagem_upload.name.split('.')[0]}.txt",
+                                        mime="text/plain",
+                                        key="download_legenda_imagem"
                                     )
-                                
-                                # Mostrar resultado
-                                st.success("✅ Legenda gerada com sucesso!")
-                                st.subheader("Legenda Gerada:")
-                                st.write(legenda_gerada)
-                                
-                                # Botão para copiar legenda
-                                st.download_button(
-                                    "📋 Baixar Legenda",
-                                    data=legenda_gerada,
-                                    file_name=f"legenda_{imagem_upload.name.split('.')[0]}.txt",
-                                    mime="text/plain",
-                                    key="download_legenda_imagem"
-                                )
-                                
-                                # Salvar no histórico se MongoDB disponível
-                                if mongo_connected_conteudo:
-                                    try:
-                                        historico_legenda = {
-                                            "tipo": "legenda_imagem",
-                                            "nome_imagem": imagem_upload.name,
-                                            "estilo_legenda": estilo_legenda,
-                                            "comprimento_legenda": comprimento_legenda,
-                                            "modelo_utilizado": modelo_legenda,
-                                            "legenda_gerada": legenda_gerada,
-                                            "agente_utilizado": st.session_state.agente_selecionado.get('nome') if st.session_state.agente_selecionado else "Nenhum",
-                                            "data_criacao": datetime.datetime.now()
-                                        }
-                                        db_briefings['historico_legendas'].insert_one(historico_legenda)
-                                        st.success("✅ Legenda salva no histórico!")
-                                    except Exception as e:
-                                        st.warning(f"Legenda gerada, mas não salva no histórico: {str(e)}")
-                                
-                            except Exception as e:
-                                st.error(f"❌ Erro ao gerar legenda: {str(e)}")
-                                st.info("💡 Dica: Verifique se a imagem não está corrompida e tente novamente.")
-        
-        # Opção 3: Inserir briefing manualmente
-        st.write("✍️ Briefing Manual:")
-        briefing_manual = st.text_area("Ou cole o briefing completo aqui:", height=150,
-                                      placeholder="""Exemplo:
+                                    
+                                    # Salvar no histórico se MongoDB disponível
+                                    if mongo_connected_conteudo:
+                                        try:
+                                            historico_legenda = {
+                                                "tipo": "legenda_imagem",
+                                                "nome_imagem": imagem_upload.name,
+                                                "estilo_legenda": estilo_legenda,
+                                                "comprimento_legenda": comprimento_legenda,
+                                                "modelo_utilizado": modelo_legenda,
+                                                "legenda_gerada": legenda_gerada,
+                                                "agente_utilizado": st.session_state.agente_selecionado.get('nome') if st.session_state.agente_selecionado else "Nenhum",
+                                                "data_criacao": datetime.datetime.now()
+                                            }
+                                            db_briefings['historico_legendas'].insert_one(historico_legenda)
+                                            st.success("✅ Legenda salva no histórico!")
+                                        except Exception as e:
+                                            st.warning(f"Legenda gerada, mas não salva no histórico: {str(e)}")
+                                    
+                                except Exception as e:
+                                    st.error(f"❌ Erro ao gerar legenda: {str(e)}")
+                                    st.info("💡 Dica: Verifique se a imagem não está corrompida e tente novamente.")
+            
+            # Opção 3: Inserir briefing manualmente
+            st.write("✍️ Briefing Manual:")
+            briefing_manual = st.text_area("Ou cole o briefing completo aqui:", height=150,
+                                          placeholder="""Exemplo:
 Título: Campanha de Lançamento
 Objetivo: Divulgar novo produto
 Público-alvo: Empresários...
 Pontos-chave: [lista os principais pontos]""",
-                                      key="briefing_manual")
-        
-        # Transcrição de áudio/vídeo
-        st.write("🎤 Transcrição de Áudio/Vídeo:")
-        arquivos_midia = st.file_uploader(
-            "Áudios/Vídeos para transcrição:",
-            type=['mp3', 'wav', 'mp4', 'mov', 'avi'],
-            accept_multiple_files=True,
-            help="Arquivos de mídia serão transcritos automaticamente",
-            key="arquivos_midia"
-        )
-        
-        transcricoes_texto = ""
-        if arquivos_midia:
-            st.info(f"🎬 {len(arquivos_midia)} arquivo(s) de mídia carregado(s)")
-            if st.button("🔄 Transcrever Todos os Arquivos de Mídia", key="transcrever_btn"):
-                with st.spinner("Transcrevendo arquivos de mídia..."):
-                    for arquivo in arquivos_midia:
-                        tipo = "audio" if arquivo.type.startswith('audio') else "video"
-                        transcricao = transcrever_audio_video(arquivo, tipo)
-                        transcricoes_texto += f"\n\n--- TRANSCRIÇÃO DE {arquivo.name.upper()} ---\n{transcricao}"
-                        st.success(f"✅ {arquivo.name} transcrito!")
-    
-    with col2:
-        st.subheader("⚙️ Configurações de Geração")
-        
-        # Seletor de modelo principal
-        st.sidebar.subheader("🤖 Modelo para Geração")
-        modelo_principal = st.sidebar.selectbox(
-            "Escolha o modelo principal:",
-            ["Gemini", "Claude", "OpenAI"],
-            key="modelo_principal_select",
-            index=0  # Gemini como padrão
-        )
-        
-        # Status dos modelos
-        st.info(f"**Modelo Selecionado:** {modelo_principal}")
-        
-        if modelo_principal == "Gemini" and not gemini_api_key:
-            st.error("❌ Gemini não disponível")
-        elif modelo_principal == "Claude" and not anthropic_api_key:
-            st.error("❌ Claude não disponível")
-        elif modelo_principal == "OpenAI" and not openai_api_key:
-            st.error("❌ OpenAI não disponível")
-        else:
-            st.success(f"✅ {modelo_principal} configurado")
-        
-        # Indicador de agente selecionado
-        if st.session_state.agente_selecionado:
-            st.info(f"🤖 Agente: {st.session_state.agente_selecionado.get('nome', 'N/A')}")
-        else:
-            st.warning("⚠️ Nenhum agente selecionado")
-        
-        # Opção para o usuário escolher entre configurações padrão ou prompt personalizado
-        modo_geracao = st.radio(
-            "Modo de Geração:",
-            ["Configurações Padrão", "Prompt Personalizado"],
-            help="Escolha entre usar configurações pré-definidas ou escrever seu próprio prompt",
-            key="modo_geracao"
-        )
-        
-        if modo_geracao == "Configurações Padrão":
-            # Configurações básicas (versão simplificada)
-            tipo_conteudo = st.selectbox("Tipo de Conteúdo:", 
-                                       ["Post Social", "Artigo Blog", "Email Marketing", 
-                                        "Landing Page", "Script Vídeo", "Relatório Técnico",
-                                        "Press Release", "Newsletter", "Case Study"],
-                                       key="tipo_conteudo")
+                                          key="briefing_manual")
             
-            tom_voz = st.selectbox("Tom de Voz:", 
-                                  ["Formal", "Informal", "Persuasivo", "Educativo", 
-                                   "Inspirador", "Técnico", "Jornalístico"],
-                                  key="tom_voz")
+            # Transcrição de áudio/vídeo
+            st.write("🎤 Transcrição de Áudio/Vídeo:")
+            arquivos_midia = st.file_uploader(
+                "Áudios/Vídeos para transcrição:",
+                type=['mp3', 'wav', 'mp4', 'mov', 'avi'],
+                accept_multiple_files=True,
+                help="Arquivos de mídia serão transcritos automaticamente",
+                key="arquivos_midia"
+            )
             
-            palavras_chave = st.text_input("Palavras-chave (opcional):",
-                                          placeholder="separadas por vírgula",
-                                          key="palavras_chave")
+            transcricoes_texto = ""
+            if arquivos_midia:
+                st.info(f"🎬 {len(arquivos_midia)} arquivo(s) de mídia carregado(s)")
+                if st.button("🔄 Transcrever Todos os Arquivos de Mídia", key="transcrever_btn"):
+                    with st.spinner("Transcrevendo arquivos de mídia..."):
+                        for arquivo in arquivos_midia:
+                            tipo = "audio" if arquivo.type.startswith('audio') else "video"
+                            transcricao = transcrever_audio_video(arquivo, tipo)
+                            transcricoes_texto += f"\n\n--- TRANSCRIÇÃO DE {arquivo.name.upper()} ---\n{transcricao}"
+                            st.success(f"✅ {arquivo.name} transcrito!")
+        
+        with col2:
+            st.subheader("⚙️ Configurações de Geração")
             
-            numero_palavras = st.slider("Número de Palavras:", 100, 3000, 800, key="numero_palavras")
+            # Seletor de modelo principal
+            st.sidebar.subheader("🤖 Modelo para Geração")
+            modelo_principal = st.sidebar.selectbox(
+                "Escolha o modelo principal:",
+                ["Gemini", "Claude", "OpenAI"],
+                key="modelo_principal_select",
+                index=0  # Gemini como padrão
+            )
             
-            # Configurações avançadas simplificadas
-            with st.expander("🔧 Configurações Avançadas"):
-                usar_contexto_agente = st.checkbox("Usar contexto do agente selecionado", 
-                                                 value=bool(st.session_state.agente_selecionado),
-                                                 key="usar_contexto")
+            # Status dos modelos
+            st.info(f"**Modelo Selecionado:** {modelo_principal}")
+            
+            if modelo_principal == "Gemini" and not gemini_api_key:
+                st.error("❌ Gemini não disponível")
+            elif modelo_principal == "Claude" and not anthropic_api_key:
+                st.error("❌ Claude não disponível")
+            elif modelo_principal == "OpenAI" and not openai_api_key:
+                st.error("❌ OpenAI não disponível")
+            else:
+                st.success(f"✅ {modelo_principal} configurado")
+            
+            # Indicador de agente selecionado
+            if st.session_state.agente_selecionado:
+                st.info(f"🤖 Agente: {st.session_state.agente_selecionado.get('nome', 'N/A')}")
+            else:
+                st.warning("⚠️ Nenhum agente selecionado")
+            
+            # Opção para busca web
+            st.markdown("---")
+            st.subheader("🔍 Busca Web")
+            
+            usar_busca_web = st.checkbox(
+                "Realizar busca web para melhorar o conteúdo",
+                value=False,
+                help="Ativa busca por informações atualizadas na web usando Perplexity AI",
+                key="usar_busca_web"
+            )
+            
+            if usar_busca_web:
+                if not perp_api_key:
+                    st.error("❌ API do Perplexity não configurada. Configure a variável de ambiente PERP_API_KEY.")
+                else:
+                    st.success("✅ Busca web disponível")
+                    
+                    termos_busca = st.text_area(
+                        "Termos para busca web:",
+                        height=80,
+                        placeholder="Ex: tendências marketing digital 2024, estatísticas redes sociais Brasil, exemplos campanhas bem-sucedidas...",
+                        help="Termos específicos para buscar informações atualizadas na web",
+                        key="termos_busca"
+                    )
+            
+            # Opção para o usuário escolher entre configurações padrão ou prompt personalizado
+            modo_geracao = st.radio(
+                "Modo de Geração:",
+                ["Configurações Padrão", "Prompt Personalizado"],
+                help="Escolha entre usar configurações pré-definidas ou escrever seu próprio prompt",
+                key="modo_geracao"
+            )
+            
+            if modo_geracao == "Configurações Padrão":
+                # Configurações básicas (versão simplificada)
+                tipo_conteudo = st.selectbox("Tipo de Conteúdo:", 
+                                           ["Post Social", "Artigo Blog", "Email Marketing", 
+                                            "Landing Page", "Script Vídeo", "Relatório Técnico",
+                                            "Press Release", "Newsletter", "Case Study"],
+                                           key="tipo_conteudo")
                 
-                incluir_cta = st.checkbox("Incluir Call-to-Action", value=True, key="incluir_cta")
+                # TOM DE VOZ COMO TEXT BOX (não select box)
+                tom_voz = st.text_area(
+                    "Tom de Voz:",
+                    placeholder="Ex: Formal e profissional, mas acessível\nOu: Casual e descontraído\nOu: Persuasivo e motivacional",
+                    height=60,
+                    key="tom_voz_textarea",
+                    help="Descreva o tom de voz desejado para o conteúdo"
+                )
                 
-                formato_saida = st.selectbox("Formato de Saída:", 
-                                           ["Texto Simples", "Markdown", "HTML Básico"],
-                                           key="formato_saida")
-        
-        else:  # Prompt Personalizado
-            st.info("💡 Escreva seu próprio prompt de geração. Use {contexto} para incluir automaticamente todas as fontes de conteúdo.")
-            prompt_personalizado = st.text_area(
-                "Seu Prompt Personalizado:",
-                height=200,
-                placeholder="""Exemplo:
+                palavras_chave = st.text_input("Palavras-chave (opcional):",
+                                              placeholder="separadas por vírgula",
+                                              key="palavras_chave")
+                
+                numero_palavras = st.slider("Número de Palavras:", 100, 3000, 800, key="numero_palavras")
+                
+                # Configurações avançadas simplificadas
+                with st.expander("🔧 Configurações Avançadas"):
+                    usar_contexto_agente = st.checkbox("Usar contexto do agente selecionado", 
+                                                     value=bool(st.session_state.agente_selecionado),
+                                                     key="usar_contexto")
+                    
+                    incluir_cta = st.checkbox("Incluir Call-to-Action", value=True, key="incluir_cta")
+                    
+                    formato_saida = st.selectbox("Formato de Saída:", 
+                                               ["Texto Simples", "Markdown", "HTML Básico"],
+                                               key="formato_saida")
+            
+            else:  # Prompt Personalizado
+                st.info("💡 Escreva seu próprio prompt de geração. Use {contexto} para incluir automaticamente todas as fontes de conteúdo.")
+                prompt_personalizado = st.text_area(
+                    "Seu Prompt Personalizado:",
+                    height=200,
+                    placeholder="""Exemplo:
 Com base no contexto fornecido, crie um artigo detalhado que:
 
 1. Explique os conceitos principais de forma clara
@@ -5232,255 +5350,473 @@ Com base no contexto fornecido, crie um artigo detalhado que:
 Contexto: {contexto}
 
 Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""",
-                key="prompt_personalizado"
-            )
-            
-            # Variáveis que o usuário pode usar no prompt personalizado
-            col_var1, col_var2, col_var3 = st.columns(3)
-            with col_var1:
-                tom_personalizado = st.selectbox("Tom:", 
-                                               ["formal", "informal", "persuasivo", "educativo"], 
-                                               key="tom_personalizado")
-            with col_var2:
-                formato_personalizado = st.selectbox("Formato:", 
-                                                   ["texto simples", "markdown", "HTML básico"], 
-                                                   key="formato_personalizado")
-            with col_var3:
-                palavras_personalizado = st.slider("Palavras:", 100, 3000, 800, key="palavras_personalizado")
-            
-            usar_contexto_agente = st.checkbox("Usar contexto do agente selecionado", 
-                                             value=bool(st.session_state.agente_selecionado),
-                                             key="contexto_personalizado")
+                    key="prompt_personalizado"
+                )
+                
+                # Variáveis que o usuário pode usar no prompt personalizado
+                col_var1, col_var2, col_var3 = st.columns(3)
+                with col_var1:
+                    # TOM DE VOZ COMO TEXT BOX (não select box)
+                    tom_personalizado = st.text_area(
+                        "Tom:",
+                        value="formal e profissional",
+                        height=60,
+                        key="tom_personalizado_textarea",
+                        help="Descreva o tom de voz desejado"
+                    )
+                with col_var2:
+                    formato_personalizado = st.selectbox("Formato:", 
+                                                       ["texto simples", "markdown", "HTML básico"], 
+                                                       key="formato_personalizado")
+                with col_var3:
+                    palavras_personalizado = st.slider("Palavras:", 100, 3000, 800, key="palavras_personalizado")
+                
+                usar_contexto_agente = st.checkbox("Usar contexto do agente selecionado", 
+                                                 value=bool(st.session_state.agente_selecionado),
+                                                 key="contexto_personalizado")
 
-    # Área de instruções específicas (apenas para modo padrão)
-    if modo_geracao == "Configurações Padrão":
-        st.subheader("🎯 Instruções Específicas")
-        instrucoes_especificas = st.text_area(
-            "Diretrizes adicionais para geração:",
-            placeholder="""Exemplos:
+        # Área de instruções específicas (apenas para modo padrão)
+        if modo_geracao == "Configurações Padrão":
+            st.subheader("🎯 Instruções Específicas")
+            instrucoes_especificas = st.text_area(
+                "Diretrizes adicionais para geração:",
+                placeholder="""Exemplos:
 - Focar nos benefícios para o usuário final
 - Incluir estatísticas quando possível
 - Manter linguagem acessível
 - Evitar jargões técnicos excessivos
 - Seguir estrutura: problema → solução → benefícios""",
-            height=100,
-            key="instrucoes_especificas"
-        )
+                height=100,
+                key="instrucoes_especificas"
+            )
 
-    # Botão para gerar conteúdo
-    if st.button("🚀 Gerar Conteúdo com Todos os Insumos", type="primary", use_container_width=True, key="gerar_conteudo_btn"):
-        # Verificar se há pelo menos uma fonte de conteúdo
-        tem_conteudo = (arquivos_upload or 
-                       briefing_manual or 
-                       arquivos_midia or
-                       (textos_arquivos and textos_arquivos.strip()))
-        
-        if not tem_conteudo:
-            st.error("❌ Por favor, forneça pelo menos uma fonte de conteúdo (arquivos, briefing ou mídia)")
-        elif modo_geracao == "Prompt Personalizado" and not prompt_personalizado:
-            st.error("❌ Por favor, escreva um prompt personalizado para geração")
-        else:
-            with st.spinner("Processando todos os insumos e gerando conteúdo..."):
+        # Botão para gerar conteúdo
+        if st.button("🚀 Gerar Conteúdo com Todos os Insumos", type="primary", use_container_width=True, key="gerar_conteudo_btn"):
+            # Verificar se há pelo menos uma fonte de conteúdo
+            tem_conteudo = (arquivos_upload or 
+                           briefing_manual or 
+                           arquivos_midia or
+                           (textos_arquivos and textos_arquivos.strip()))
+            
+            if not tem_conteudo:
+                st.error("❌ Por favor, forneça pelo menos uma fonte de conteúdo (arquivos, briefing ou mídia)")
+            elif modo_geracao == "Prompt Personalizado" and not prompt_personalizado:
+                st.error("❌ Por favor, escreva um prompt personalizado para geração")
+            else:
+                with st.spinner("Processando todos os insumos e gerando conteúdo..."):
+                    try:
+                        # Construir o contexto combinado de todas as fontes
+                        contexto_completo = "## FONTES DE CONTEÚDO COMBINADAS:\n\n"
+                        
+                        # Adicionar conteúdo dos arquivos uploadados
+                        if textos_arquivos and textos_arquivos.strip():
+                            contexto_completo += "### CONTEÚDO DOS ARQUIVOS:\n" + textos_arquivos + "\n\n"
+                        
+                        # Adicionar briefing manual
+                        if briefing_manual and briefing_manual.strip():
+                            contexto_completo += "### BRIEFING MANUAL:\n" + briefing_manual + "\n\n"
+                        
+                        # Adicionar transcrições
+                        if transcricoes_texto and transcricoes_texto.strip():
+                            contexto_completo += "### TRANSCRIÇÕES DE MÍDIA:\n" + transcricoes_texto + "\n\n"
+                        
+                        # Realizar busca web se solicitado
+                        busca_web_resultado = ""
+                        if usar_busca_web and termos_busca and termos_busca.strip() and perp_api_key:
+                            with st.spinner("🔍 Realizando busca web..."):
+                                # Preparar contexto do agente para busca
+                                contexto_agente_busca = ""
+                                if st.session_state.agente_selecionado:
+                                    agente = st.session_state.agente_selecionado
+                                    contexto_agente_busca = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                                
+                                busca_web_resultado = realizar_busca_web(termos_busca, contexto_agente_busca)
+                                
+                                if "❌" not in busca_web_resultado:
+                                    contexto_completo += "### RESULTADOS DA BUSCA WEB:\n" + busca_web_resultado + "\n\n"
+                                    st.success("✅ Busca web realizada com sucesso!")
+                        
+                        # Adicionar contexto do agente se selecionado
+                        contexto_agente = ""
+                        if usar_contexto_agente and st.session_state.agente_selecionado:
+                            agente = st.session_state.agente_selecionado
+                            contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                        
+                        # Construir prompt final baseado no modo selecionado
+                        if modo_geracao == "Configurações Padrão":
+                            prompt_final = f"""
+                            {contexto_agente}
+                            
+                            ## INSTRUÇÕES PARA GERAÇÃO DE CONTEÚDO:
+                            
+                            **TIPO DE CONTEÚDO:** {tipo_conteudo}
+                            **TOM DE VOZ:** {tom_voz if tom_voz.strip() else 'Não especificado'}
+                            **PALAVRAS-CHAVE:** {palavras_chave if palavras_chave else 'Não especificadas'}
+                            **NÚMERO DE PALAVRAS:** {numero_palavras} (±10%)
+                            **INCLUIR CALL-TO-ACTION:** {incluir_cta}
+                            
+                            **INSTRUÇÕES ESPECÍFICAS:**
+                            {instrucoes_especificas if instrucoes_especificas else 'Nenhuma instrução específica fornecida.'}
+                            
+                            ## FONTES E REFERÊNCIAS:
+                            {contexto_completo}
+                            
+                            ## TAREFA:
+                            Com base em TODAS as fontes fornecidas acima, gere um conteúdo do tipo {tipo_conteudo} que:
+                            
+                            1. **Síntese Eficiente:** Combine e sintetize informações de todas as fontes
+                            2. **Coerência:** Mantenha consistência com as informações originais
+                            3. **Valor Agregado:** Vá além da simples cópia, agregando insights
+                            4. **Engajamento:** Crie conteúdo que engaje o público-alvo
+                            5. **Clareza:** Comunique ideias complexas de forma acessível
+                            
+                            **FORMATO DE SAÍDA:** {formato_saida}
+                            
+                            Gere um conteúdo completo e profissional.
+                            """
+                        else:  # Prompt Personalizado
+                            # Substituir variáveis no prompt personalizado
+                            prompt_processado = prompt_personalizado.replace("{contexto}", contexto_completo)
+                            prompt_processado = prompt_processado.replace("{tom}", tom_personalizado if tom_personalizado.strip() else "adequado")
+                            prompt_processado = prompt_processado.replace("{formato}", formato_personalizado)
+                            prompt_processado = prompt_processado.replace("{palavras}", str(palavras_personalizado))
+                            
+                            prompt_final = f"""
+                            {contexto_agente}
+                            
+                            {prompt_processado}
+                            """
+                        
+                        # Gerar conteúdo usando o modelo selecionado
+                        conteudo_gerado = gerar_conteudo_modelo(prompt_final, modelo_principal, contexto_agente)
+                        
+                        # Determinar formato de saída baseado no modo
+                        if modo_geracao == "Configurações Padrão":
+                            formato_output = formato_saida
+                        else:
+                            formato_output = formato_personalizado
+                        
+                        # Processar saída baseada no formato selecionado
+                        if formato_output == "HTML Básico" or formato_output == "HTML básico":
+                            # Converter markdown para HTML básico
+                            import re
+                            conteudo_html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', conteudo_gerado)
+                            conteudo_html = re.sub(r'\*(.*?)\*', r'<em>\1</em>', conteudo_html)
+                            conteudo_html = re.sub(r'### (.*?)\n', r'<h3>\1</h3>', conteudo_html)
+                            conteudo_html = re.sub(r'## (.*?)\n', r'<h2>\1</h2>', conteudo_html)
+                            conteudo_html = re.sub(r'# (.*?)\n', r'<h1>\1</h1>', conteudo_html)
+                            conteudo_html = conteudo_html.replace('\n', '<br>')
+                        
+                        # Armazenar no session state para uso posterior
+                        st.session_state.conteudo_gerado = conteudo_gerado
+                        st.session_state.tipo_conteudo_gerado = tipo_conteudo if modo_geracao == "Configurações Padrão" else "personalizado"
+                        st.session_state.modelo_utilizado_geracao = modelo_principal
+                        st.session_state.formato_output = formato_output
+                        
+                        # Determinar extensão do arquivo
+                        extensao = ".html" if "HTML" in formato_output else ".md" if "markdown" in formato_output.lower() else ".txt"
+                        
+                        # Mostrar conteúdo gerado
+                        st.subheader("📄 Conteúdo Gerado")
+                        
+                        if formato_output == "HTML Básico" or formato_output == "HTML básico":
+                            st.components.v1.html(conteudo_html, height=400, scrolling=True)
+                            conteudo_download = conteudo_html
+                        else:
+                            st.markdown(conteudo_gerado)
+                            conteudo_download = conteudo_gerado
+                        
+                        # Estatísticas
+                        palavras_count = len(conteudo_gerado.split())
+                        col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+                        with col_stat1:
+                            st.metric("Palavras Geradas", palavras_count)
+                        with col_stat2:
+                            st.metric("Arquivos Processados", len(arquivos_upload) if arquivos_upload else 0)
+                        with col_stat3:
+                            st.metric("Modelo Utilizado", modelo_principal)
+                        with col_stat4:
+                            st.metric("Busca Web", "✅" if usar_busca_web and termos_busca else "❌")
+                        
+                        # Botões de download
+                        col_dl1, col_dl2 = st.columns(2)
+                        
+                        with col_dl1:
+                            st.download_button(
+                                f"💾 Baixar Conteúdo",
+                                data=conteudo_download,
+                                file_name=f"conteudo_{modelo_principal}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}{extensao}",
+                                mime="text/html" if "HTML" in formato_output else "text/plain",
+                                key="download_conteudo_principal"
+                            )
+                        
+                        with col_dl2:
+                            # Salvar no histórico se MongoDB disponível
+                            if mongo_connected_conteudo:
+                                try:
+                                    historico_data = {
+                                        "modo_geracao": modo_geracao,
+                                        "modelo_utilizado": modelo_principal,
+                                        "tipo_conteudo": tipo_conteudo if modo_geracao == "Configurações Padrão" else "Personalizado",
+                                        "tom_voz": tom_voz if modo_geracao == "Configurações Padrão" else tom_personalizado,
+                                        "palavras_chave": palavras_chave if modo_geracao == "Configurações Padrão" else "Personalizado",
+                                        "numero_palavras": palavras_count,
+                                        "conteudo_gerado": conteudo_gerado,
+                                        "usou_busca_web": usar_busca_web and termos_busca,
+                                        "fontes_utilizadas": {
+                                            "arquivos_upload": [arquivo.name for arquivo in arquivos_upload] if arquivos_upload else [],
+                                            "briefing_manual": bool(briefing_manual and briefing_manual.strip()),
+                                            "transcricoes": len(arquivos_midia) if arquivos_midia else 0
+                                        },
+                                        "agente_utilizado": st.session_state.agente_selecionado.get('nome') if st.session_state.agente_selecionado else "Nenhum",
+                                        "data_criacao": datetime.datetime.now()
+                                    }
+                                    db_briefings['historico_geracao'].insert_one(historico_data)
+                                    st.success("✅ Conteúdo salvo no histórico!")
+                                except Exception as e:
+                                    st.warning(f"Conteúdo gerado, mas não salva no histórico: {str(e)}")
+                        
+                        # Informar sobre a aba de ajustes
+                        st.info("💡 **Agora você pode ir para a aba '✏️ Ajustes Incrementais' para refinar este conteúdo!**")
+                        
+                    except Exception as e:
+                        st.error(f"❌ Erro ao gerar conteúdo: {str(e)}")
+                        st.info("💡 Dica: Verifique se os arquivos não estão corrompidos e tente novamente.")
+
+        # Seção de histórico rápido
+        if mongo_connected_conteudo:
+            with st.expander("📚 Histórico de Gerações Recentes"):
                 try:
-                    # Construir o contexto combinado de todas as fontes
-                    contexto_completo = "## FONTES DE CONTEÚDO COMBINADAS:\n\n"
-                    
-                    # Adicionar conteúdo dos arquivos uploadados
-                    if textos_arquivos and textos_arquivos.strip():
-                        contexto_completo += "### CONTEÚDO DOS ARQUIVOS:\n" + textos_arquivos + "\n\n"
-                    
-                    # Adicionar briefing manual
-                    if briefing_manual and briefing_manual.strip():
-                        contexto_completo += "### BRIEFING MANUAL:\n" + briefing_manual + "\n\n"
-                    
-                    # Adicionar transcrições
-                    if transcricoes_texto and transcricoes_texto.strip():
-                        contexto_completo += "### TRANSCRIÇÕES DE MÍDIA:\n" + transcricoes_texto + "\n\n"
-                    
-                    # Adicionar contexto do agente se selecionado
-                    contexto_agente = ""
-                    if usar_contexto_agente and st.session_state.agente_selecionado:
-                        agente = st.session_state.agente_selecionado
-                        contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
-                    
-                    # Construir prompt final baseado no modo selecionado
-                    if modo_geracao == "Configurações Padrão":
-                        prompt_final = f"""
-                        {contexto_agente}
-                        
-                        ## INSTRUÇÕES PARA GERAÇÃO DE CONTEÚDO:
-                        
-                        **TIPO DE CONTEÚDO:** {tipo_conteudo}
-                        **TOM DE VOZ:** {tom_voz}
-                        **PALAVRAS-CHAVE:** {palavras_chave if palavras_chave else 'Não especificadas'}
-                        **NÚMERO DE PALAVRAS:** {numero_palavras} (±10%)
-                        **INCLUIR CALL-TO-ACTION:** {incluir_cta}
-                        
-                        **INSTRUÇÕES ESPECÍFICAS:**
-                        {instrucoes_especificas if instrucoes_especificas else 'Nenhuma instrução específica fornecida.'}
-                        
-                        ## FONTES E REFERÊNCIAS:
-                        {contexto_completo}
-                        
-                        ## TAREFA:
-                        Com base em TODAS as fontes fornecidas acima, gere um conteúdo do tipo {tipo_conteudo} que:
-                        
-                        1. **Síntese Eficiente:** Combine e sintetize informações de todas as fontes
-                        2. **Coerência:** Mantenha consistência com as informações originais
-                        3. **Valor Agregado:** Vá além da simples cópia, agregando insights
-                        4. **Engajamento:** Crie conteúdo que engaje o público-alvo
-                        5. **Clareza:** Comunique ideias complexas de forma acessível
-                        
-                        **FORMATO DE SAÍDA:** {formato_saida}
-                        
-                        Gere um conteúdo completo e profissional.
-                        """
-                    else:  # Prompt Personalizado
-                        # Substituir variáveis no prompt personalizado
-                        prompt_processado = prompt_personalizado.replace("{contexto}", contexto_completo)
-                        prompt_processado = prompt_processado.replace("{tom}", tom_personalizado)
-                        prompt_processado = prompt_processado.replace("{formato}", formato_personalizado)
-                        prompt_processado = prompt_processado.replace("{palavras}", str(palavras_personalizado))
-                        
-                        prompt_final = f"""
-                        {contexto_agente}
-                        
-                        {prompt_processado}
-                        """
-                    
-                    # Gerar conteúdo usando o modelo selecionado
-                    conteudo_gerado = gerar_conteudo_modelo(prompt_final, modelo_principal, contexto_agente)
-                    
-                    # Determinar formato de saída baseado no modo
-                    if modo_geracao == "Configurações Padrão":
-                        formato_output = formato_saida
+                    historico = list(db_briefings['historico_geracao'].find().sort("data_criacao", -1).limit(5))
+                    if historico:
+                        for item in historico:
+                            with st.container():
+                                col_hist1, col_hist2 = st.columns([3, 1])
+                                with col_hist1:
+                                    st.write(f"**{item.get('tipo_conteudo', 'Conteúdo')}**")
+                                    st.caption(f"📅 {item['data_criacao'].strftime('%d/%m/%Y %H:%M')} | 🤖 {item.get('modelo_utilizado', 'N/A')}")
+                                    st.caption(f"📝 {item.get('numero_palavras', 0)} palavras")
+                                    if item.get('usou_busca_web'):
+                                        st.caption("🔍 Com busca web")
+                                
+                                with col_hist2:
+                                    if st.button("📋 Ver", key=f"ver_{item['_id']}"):
+                                        st.session_state.conteudo_selecionado = item
+                                        st.rerun()
+                                
+                                st.divider()
                     else:
-                        formato_output = formato_personalizado
-                    
-                    # Processar saída baseada no formato selecionado
-                    if formato_output == "HTML Básico" or formato_output == "HTML básico":
-                        # Converter markdown para HTML básico
-                        import re
-                        conteudo_html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', conteudo_gerado)
-                        conteudo_html = re.sub(r'\*(.*?)\*', r'<em>\1</em>', conteudo_html)
-                        conteudo_html = re.sub(r'### (.*?)\n', r'<h3>\1</h3>', conteudo_html)
-                        conteudo_html = re.sub(r'## (.*?)\n', r'<h2>\1</h2>', conteudo_html)
-                        conteudo_html = re.sub(r'# (.*?)\n', r'<h1>\1</h1>', conteudo_html)
-                        conteudo_html = conteudo_html.replace('\n', '<br>')
-                    
-                    st.subheader("📄 Conteúdo Gerado")
-                    
-                    if formato_output == "HTML Básico" or formato_output == "HTML básico":
-                        st.components.v1.html(conteudo_html, height=400, scrolling=True)
-                        conteudo_download = conteudo_html
-                    else:
-                        st.markdown(conteudo_gerado)
-                        conteudo_download = conteudo_gerado
-                    
-                    # Estatísticas
-                    palavras_count = len(conteudo_gerado.split())
-                    col_stat1, col_stat2, col_stat3 = st.columns(3)
-                    with col_stat1:
-                        st.metric("Palavras Geradas", palavras_count)
-                    with col_stat2:
-                        st.metric("Arquivos Processados", len(arquivos_upload) if arquivos_upload else 0)
-                    with col_stat3:
-                        st.metric("Modelo Utilizado", modelo_principal)
-                    
-                    # Botões de download
-                    extensao = ".html" if "HTML" in formato_output else ".md" if "markdown" in formato_output.lower() else ".txt"
-                    
-                    col_dl1, col_dl2 = st.columns(2)
-                    
-                    with col_dl1:
-                        st.download_button(
-                            f"💾 Baixar Conteúdo",
-                            data=conteudo_download,
-                            file_name=f"conteudo_{modelo_principal}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}{extensao}",
-                            mime="text/html" if "HTML" in formato_output else "text/plain"
-                        )
-                    
-                    with col_dl2:
-                        # Salvar no histórico se MongoDB disponível
-                        if mongo_connected_conteudo:
-                            try:
-                                historico_data = {
-                                    "modo_geracao": modo_geracao,
-                                    "modelo_utilizado": modelo_principal,
-                                    "tipo_conteudo": tipo_conteudo if modo_geracao == "Configurações Padrão" else "Personalizado",
-                                    "tom_voz": tom_voz if modo_geracao == "Configurações Padrão" else tom_personalizado,
-                                    "palavras_chave": palavras_chave if modo_geracao == "Configurações Padrão" else "Personalizado",
-                                    "numero_palavras": palavras_count,
-                                    "conteudo_gerado": conteudo_gerado,
-                                    "fontes_utilizadas": {
-                                        "arquivos_upload": [arquivo.name for arquivo in arquivos_upload] if arquivos_upload else [],
-                                        "briefing_manual": bool(briefing_manual and briefing_manual.strip()),
-                                        "transcricoes": len(arquivos_midia) if arquivos_midia else 0
-                                    },
-                                    "agente_utilizado": st.session_state.agente_selecionado.get('nome') if st.session_state.agente_selecionado else "Nenhum",
-                                    "data_criacao": datetime.datetime.now()
-                                }
-                                db_briefings['historico_geracao'].insert_one(historico_data)
-                                st.success("✅ Conteúdo salvo no histórico!")
-                            except Exception as e:
-                                st.warning(f"Conteúdo gerado, mas não salvo no histórico: {str(e)}")
-                    
+                        st.info("Nenhuma geração no histórico")
+                        
+                    # Visualizar conteúdo selecionado
+                    if 'conteudo_selecionado' in st.session_state:
+                        st.subheader("Conteúdo Selecionado")
+                        st.markdown(st.session_state.conteudo_selecionado['conteudo_gerado'][:500] + "..." 
+                                  if len(st.session_state.conteudo_selecionado['conteudo_gerado']) > 500 
+                                  else st.session_state.conteudo_selecionado['conteudo_gerado'])
+                        
+                        if st.button("Fechar", key="fechar_conteudo"):
+                            del st.session_state.conteudo_selecionado
+                            st.rerun()
+                            
                 except Exception as e:
-                    st.error(f"❌ Erro ao gerar conteúdo: {str(e)}")
-                    st.info("💡 Dica: Verifique se os arquivos não estão corrompidos e tente novamente.")
+                    st.warning(f"Erro ao carregar histórico: {str(e)}")
 
-    # Seção de histórico rápido
-    if mongo_connected_conteudo:
-        with st.expander("📚 Histórico de Gerações Recentes"):
-            try:
-                historico = list(db_briefings['historico_geracao'].find().sort("data_criacao", -1).limit(5))
-                if historico:
-                    for item in historico:
-                        with st.container():
-                            col_hist1, col_hist2 = st.columns([3, 1])
-                            with col_hist1:
-                                st.write(f"**{item.get('tipo_conteudo', 'Conteúdo')}**")
-                                st.caption(f"📅 {item['data_criacao'].strftime('%d/%m/%Y %H:%M')} | 🤖 {item.get('modelo_utilizado', 'N/A')}")
-                                st.caption(f"📝 {item.get('numero_palavras', 0)} palavras")
-                            
-                            with col_hist2:
-                                if st.button("📋 Ver", key=f"ver_{item['_id']}"):
-                                    st.session_state.conteudo_selecionado = item
-                                    st.rerun()
-                            
-                            st.divider()
+            # Histórico de legendas geradas
+            with st.expander("🖼️ Histórico de Legendas"):
+                try:
+                    historico_legendas = list(db_briefings['historico_legendas'].find().sort("data_criacao", -1).limit(5))
+                    if historico_legendas:
+                        for item in historico_legendas:
+                            with st.container():
+                                st.write(f"**{item['nome_imagem']}**")
+                                st.caption(f"📅 {item['data_criacao'].strftime('%d/%m/%Y %H:%M')} | 🎨 {item['estilo_legenda']} | 🤖 {item.get('modelo_utilizado', 'N/A')}")
+                                st.write(f"*{item['legenda_gerada'][:100]}...*" if len(item['legenda_gerada']) > 100 else item['legenda_gerada'])
+                                st.divider()
+                    else:
+                        st.info("Nenhuma legenda no histórico")
+                except Exception as e:
+                    st.warning(f"Erro ao carregar histórico de legendas: {str(e)}")
+
+    with tab_ajuste:
+        st.header("✏️ Ajustes Incrementais no Conteúdo")
+        
+        if 'conteudo_gerado' not in st.session_state or not st.session_state.conteudo_gerado:
+            st.warning("⚠️ Nenhum conteúdo gerado recentemente. Gere um conteúdo primeiro na aba 'Geração de Conteúdo'.")
+            st.info("💡 Vá para a aba '📝 Geração de Conteúdo' e gere um conteúdo para poder ajustá-lo aqui.")
+        else:
+            st.success(f"✅ Conteúdo disponível para ajustes ({st.session_state.tipo_conteudo_gerado})")
+            
+            # Exibir informações do conteúdo
+            col_info1, col_info2, col_info3 = st.columns(3)
+            with col_info1:
+                st.metric("Modelo Original", st.session_state.modelo_utilizado_geracao)
+            with col_info2:
+                st.metric("Tipo", st.session_state.tipo_conteudo_gerado)
+            with col_info3:
+                st.metric("Formato", st.session_state.formato_output)
+            
+            # Área para visualização do conteúdo atual
+            st.subheader("📄 Conteúdo Atual")
+            with st.expander("Ver conteúdo completo", expanded=True):
+                st.markdown(st.session_state.conteudo_gerado)
+            
+            # Área para instruções de ajuste
+            st.subheader("🎯 Instruções de Ajuste")
+            
+            instrucoes_ajuste = st.text_area(
+                "Descreva o que deseja ajustar no conteúdo:",
+                height=150,
+                placeholder="""Exemplos:
+- Adicione mais estatísticas na introdução
+- Torne o tom mais formal na seção técnica
+- Inclua um exemplo prático no terceiro parágrafo
+- Resuma a conclusão para ficar mais direta
+- Adicione uma chamada para ação mais urgente
+- Reforce os benefícios principais no segundo tópico""",
+                help="Descreva especificamente o que deseja modificar no conteúdo existente",
+                key="instrucoes_ajuste"
+            )
+            
+            # Configurações do ajuste
+            col_ajuste1, col_ajuste2 = st.columns(2)
+            
+            with col_ajuste1:
+                modelo_ajuste = st.selectbox(
+                    "Modelo para ajuste:",
+                    ["Gemini", "Claude", "OpenAI"],
+                    key="modelo_ajuste_select",
+                    help="Escolha o modelo para realizar os ajustes"
+                )
+            
+            with col_ajuste2:
+                usar_contexto_ajuste = st.checkbox(
+                    "Usar contexto do agente selecionado",
+                    value=bool(st.session_state.agente_selecionado),
+                    key="usar_contexto_ajuste",
+                    help="Usar as diretrizes do agente durante os ajustes"
+                )
+            
+            # Botão para aplicar ajuste
+            if st.button("🔄 Aplicar Ajustes", type="primary", key="aplicar_ajustes_btn"):
+                if not instrucoes_ajuste or not instrucoes_ajuste.strip():
+                    st.warning("⚠️ Por favor, descreva as alterações que deseja fazer.")
                 else:
-                    st.info("Nenhuma geração no histórico")
-                    
-                # Visualizar conteúdo selecionado
-                if 'conteudo_selecionado' in st.session_state:
-                    st.subheader("Conteúdo Selecionado")
-                    st.markdown(st.session_state.conteudo_selecionado['conteudo_gerado'][:500] + "..." 
-                              if len(st.session_state.conteudo_selecionado['conteudo_gerado']) > 500 
-                              else st.session_state.conteudo_selecionado['conteudo_gerado'])
-                    
-                    if st.button("Fechar", key="fechar_conteudo"):
-                        del st.session_state.conteudo_selecionado
-                        st.rerun()
+                    with st.spinner("Aplicando ajustes ao conteúdo..."):
+                        try:
+                            # Preparar contexto do agente se necessário
+                            contexto_agente = ""
+                            if usar_contexto_ajuste and st.session_state.agente_selecionado:
+                                agente = st.session_state.agente_selecionado
+                                contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                            
+                            # Aplicar ajustes incrementais
+                            conteudo_ajustado = ajustar_conteudo_incremental(
+                                st.session_state.conteudo_gerado,
+                                instrucoes_ajuste,
+                                modelo_ajuste,
+                                contexto_agente
+                            )
+                            
+                            if "❌" in conteudo_ajustado:
+                                st.error(conteudo_ajustado)
+                            else:
+                                st.success("✅ Ajustes aplicados com sucesso!")
+                                
+                                # Atualizar o conteúdo no session state
+                                st.session_state.conteudo_gerado = conteudo_ajustado
+                                
+                                # Mostrar diferenças
+                                st.subheader("📋 Comparação: Antes vs Depois")
+                                
+                                col_antes, col_depois = st.columns(2)
+                                
+                                with col_antes:
+                                    st.markdown("#### 🕒 Antes")
+                                    # Mostrar apenas parte do conteúdo para comparação
+                                    palavras_antes = st.session_state.conteudo_gerado.split()  # conteúdo anterior
+                                    preview_antes = " ".join(palavras_antes[:100])
+                                    if len(palavras_antes) > 100:
+                                        preview_antes += "..."
+                                    st.markdown(preview_antes)
+                                
+                                with col_depois:
+                                    st.markdown("#### ✨ Depois")
+                                    # Mostrar apenas parte do conteúdo para comparação
+                                    palavras_depois = conteudo_ajustado.split()
+                                    preview_depois = " ".join(palavras_depois[:100])
+                                    if len(palavras_depois) > 100:
+                                        preview_depois += "..."
+                                    st.markdown(preview_depois)
+                                
+                                # Botão para visualizar completo
+                                with st.expander("Ver conteúdo completo ajustado", expanded=False):
+                                    st.markdown(conteudo_ajustado)
+                                
+                                # Estatísticas do ajuste
+                                st.subheader("📊 Estatísticas do Ajuste")
+                                col_stats1, col_stats2, col_stats3 = st.columns(3)
+                                
+                                with col_stats1:
+                                    palavras_originais = len(st.session_state.conteudo_gerado.split())
+                                    palavras_ajustadas = len(conteudo_ajustado.split())
+                                    diferenca = palavras_ajustadas - palavras_originais
+                                    st.metric("Palavras", palavras_ajustadas, delta=f"{diferenca:+}")
+                                
+                                with col_stats2:
+                                    st.metric("Modelo Ajuste", modelo_ajuste)
+                                
+                                with col_stats3:
+                                    st.metric("Ajustes Feitos", "✅")
+                                
+                                # Salvar versão ajustada no histórico
+                                if mongo_connected_conteudo:
+                                    try:
+                                        historico_ajuste = {
+                                            "tipo": "ajuste_incremental",
+                                            "conteudo_original_id": "atual",  # Poderia ser um ID real
+                                            "instrucoes_ajuste": instrucoes_ajuste,
+                                            "modelo_utilizado": modelo_ajuste,
+                                            "conteudo_ajustado": conteudo_ajustado,
+                                            "data_ajuste": datetime.datetime.now()
+                                        }
+                                        db_briefings['historico_ajustes'].insert_one(historico_ajuste)
+                                        st.success("✅ Ajuste salvo no histórico!")
+                                    except Exception as e:
+                                        st.warning(f"Ajuste aplicado, mas não salvo no histórico: {str(e)}")
                         
-            except Exception as e:
-                st.warning(f"Erro ao carregar histórico: {str(e)}")
-
-        # Histórico de legendas geradas
-        with st.expander("🖼️ Histórico de Legendas"):
-            try:
-                historico_legendas = list(db_briefings['historico_legendas'].find().sort("data_criacao", -1).limit(5))
-                if historico_legendas:
-                    for item in historico_legendas:
-                        with st.container():
-                            st.write(f"**{item['nome_imagem']}**")
-                            st.caption(f"📅 {item['data_criacao'].strftime('%d/%m/%Y %H:%M')} | 🎨 {item['estilo_legenda']} | 🤖 {item.get('modelo_utilizado', 'N/A')}")
-                            st.write(f"*{item['legenda_gerada'][:100]}...*" if len(item['legenda_gerada']) > 100 else item['legenda_gerada'])
-                            st.divider()
-                else:
-                    st.info("Nenhuma legenda no histórico")
-            except Exception as e:
-                st.warning(f"Erro ao carregar histórico de legendas: {str(e)}")
+                        except Exception as e:
+                            st.error(f"❌ Erro ao aplicar ajustes: {str(e)}")
+            
+            # Área para download do conteúdo ajustado
+            st.markdown("---")
+            st.subheader("📥 Download do Conteúdo Ajustado")
+            
+            if 'conteudo_gerado' in st.session_state:
+                # Determinar extensão baseada no formato
+                formato = st.session_state.formato_output
+                extensao = ".html" if "HTML" in formato else ".md" if "markdown" in formato.lower() else ".txt"
+                
+                col_dl1, col_dl2, col_dl3 = st.columns(3)
+                
+                with col_dl1:
+                    st.download_button(
+                        "💾 Baixar Conteúdo Atual",
+                        data=st.session_state.conteudo_gerado,
+                        file_name=f"conteudo_ajustado_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}{extensao}",
+                        mime="text/plain",
+                        key="download_conteudo_ajustado"
+                    )
+                
+                with col_dl2:
+                    if st.button("🔄 Reiniciar do Original", key="reiniciar_conteudo"):
+                        # Aqui você poderia carregar a versão original do histórico se tivesse
+                        st.info("Para reiniciar, gere um novo conteúdo na aba de geração.")
+                
+                with col_dl3:
+                    if st.button("📋 Copiar para Nova Geração", key="copiar_para_geracao"):
+                        st.session_state.texto_para_nova_geracao = st.session_state.conteudo_gerado
+                        st.success("✅ Conteúdo copiado! Vá para a aba de geração para usá-lo como base.")
 
 
 
