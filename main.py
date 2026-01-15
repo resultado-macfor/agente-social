@@ -6,6 +6,7 @@ import google.generativeai as genai
 from PIL import Image
 import datetime
 import os
+from openai import OpenAI
 from pymongo import MongoClient
 from bson import ObjectId
 import json
