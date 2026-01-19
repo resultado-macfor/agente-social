@@ -3556,10 +3556,7 @@ Liste cada problema encontrado, na ordem cronológica. Use o formato abaixo para
 
         Descrição: [Explicação clara do problema. Ex: "Legenda exibida 2.5s antes da fala.", "Substituição de palavra.", "Capitalização incorreta após vírgula."]
 
-✅ Trechos Corretos
 
-[Liste brevemente os intervalos de tempo (ex: 00:00-00:15, 01:30-02:00) onde a sincronização e o texto estavam perfeitos, se aplicável e relevante. Pode ser omitido se houver poucos acertos.]
-🎯 Recomendações para Correção
 
 [Forneça sugestões específicas e acionáveis com base nos problemas encontrados, por exemplo:]
 
