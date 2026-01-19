@@ -4803,6 +4803,7 @@ Notas Finais para o Analista:
             else:
                 st.info("🎬 Carregue um ou mais vídeos para iniciar a validação")
                 
+# --- ABA: GERAÇÃO DE CONTEÚDO (MODIFICADA PARA BUSCA WEB COM FONTES) ---
 with tab_mapping["✨ Geração de Conteúdo"]:
     st.header("✨ Geração de Conteúdo com Múltiplos Insumos")
     
@@ -4884,9 +4885,9 @@ with tab_mapping["✨ Geração de Conteúdo"]:
         except Exception as e:
             return f"❌ Erro ao gerar conteúdo com {modelo_escolhido}: {str(e)}"
 
-    # Função para realizar busca web
-    def realizar_busca_web(termos_busca: str, contexto_agente: str = None) -> str:
-        """Realiza busca web usando a API do Perplexity"""
+    # Função para realizar busca web COM FONTES (MODIFICADA)
+    def realizar_busca_web_com_fontes(termos_busca: str, contexto_agente: str = None) -> str:
+        """Realiza busca web usando API do Perplexity e RETORNA SEMPRE AS FONTES"""
         if not perp_api_key:
             return "❌ API do Perplexity não configurada. A busca web não está disponível."
         
@@ -4896,32 +4897,41 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                 "Content-Type": "application/json"
             }
             
-            # Construir mensagem com contexto
+            # Construir mensagem com contexto e EXIGÊNCIA EXPLÍCITA de fontes
             mensagem_sistema = contexto_agente if contexto_agente else "Você é um assistente de pesquisa que fornece informações precisas e atualizadas."
             
+            # PROMPT MODIFICADO: EXIGIR SEMPRE FONTES
             data = {
                 "model": "sonar",
                 "messages": [
                     {
                         "role": "system",
-                        "content": mensagem_sistema
+                        "content": f"{mensagem_sistema}\n\nIMPORTANTE: Você DEVE SEMPRE incluir as fontes (links e nomes dos sites) de onde tirou as informações. Para cada informação ou dado, mencione a fonte específica."
                     },
                     {
                         "role": "user", 
                         "content": f"""Realize uma busca na web sobre: {termos_busca}
                         
-                        Forneça informações:
-                        1. Dados e estatísticas atualizadas
-                        2. Tendências recentes
-                        3. Exemplos práticos
-                        4. Fontes confiáveis
-                        5. Link de fonte - SEMPRE ESCREVA ISSO NO RETORNO
-                        6. Fonte utilizada - SEMPRE ESCREVA ISSO NO RETORNO
+                        FORNECER INFORMAÇÕES COM:
+                        1. Dados e estatísticas atualizadas - SEMPRE COM FONTE
+                        2. Tendências recentes - SEMPRE COM FONTE
+                        3. Exemplos práticos - SEMPRE COM FONTE
                         
-                        Seja conciso e factual."""
+                        REQUISITOS OBRIGATÓRIOS:
+                        - Para cada informação fornecida, mencione a fonte específica
+                        - Inclua o nome do site/source e o link
+                        - Seja preciso nas citações
+                        - Use formato: "Fonte: [Nome do Site] ([link])"
+                        - Cite múltiplas fontes quando aplicável
+                        
+                        Formato de resposta esperado:
+                        [Informação 1] Fonte: [Nome do Site] ([link])
+                        [Informação 2] Fonte: [Nome do Site] ([link])
+                        
+                        Seja conciso, factual e sempre forneça as fontes."""
                     }
                 ],
-                "max_tokens": 2000,
+                "max_tokens": 2500,
                 "temperature": 0.0
             }
             
@@ -4934,12 +4944,86 @@ with tab_mapping["✨ Geração de Conteúdo"]:
             
             if response.status_code == 200:
                 result = response.json()
-                return result['choices'][0]['message']['content']
+                resposta_completa = result['choices'][0]['message']['content']
+                
+                # Verificar se há fontes na resposta
+                if any(keyword in resposta_completa.lower() for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br', '.org']):
+                    return resposta_completa
+                else:
+                    # Se não houver fontes, adicionar um aviso
+                    return f"{resposta_completa}\n\n⚠️ **AVISO:** As fontes não foram incluídas na resposta da API. Tente reformular a pergunta."
             else:
                 return f"❌ Erro na busca web: {response.status_code}"
                 
         except Exception as e:
             return f"❌ Erro ao realizar busca web: {str(e)}"
+
+    # Função para analisar URLs específicas COM FONTES
+    def analisar_urls_com_fontes(urls: List[str], pergunta: str, contexto_agente: str = None) -> str:
+        """Analisa URLs específicas usando Perplexity SEMPRE com fontes"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {perp_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            # Construir contexto com URLs
+            urls_contexto = "\n".join([f"- {url}" for url in urls])
+            
+            messages = []
+            
+            if contexto_agente:
+                messages.append({
+                    "role": "system",
+                    "content": f"Contexto do agente: {contexto_agente}"
+                })
+            
+            messages.append({
+                "role": "user",
+                "content": f"""Analise as seguintes URLs e responda à pergunta:
+
+URLs para análise (SEMPRE CITE AS FONTES):
+{urls_contexto}
+
+Pergunta: {pergunta}
+
+REQUISITOS OBRIGATÓRIOS:
+- Para cada informação, mencione de qual URL específica veio
+- Use formato: "Fonte: [URL específica]"
+- Se uma informação vem de múltiplas URLs, cite todas
+- Seja preciso nas citações
+
+Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando as fontes."""
+            })
+            
+            data = {
+                "model": "sonar-medium-online",
+                "messages": messages,
+                "max_tokens": 3000,
+                "temperature": 0.0
+            }
+            
+            response = requests.post(
+                "https://api.perplexity.ai/chat/completions",
+                headers=headers,
+                json=data,
+                timeout=45
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                resposta_completa = result['choices'][0]['message']['content']
+                
+                # Verificar se há citações de URLs na resposta
+                if any(url in resposta_completa for url in urls):
+                    return resposta_completa
+                else:
+                    return f"{resposta_completa}\n\n⚠️ **AVISO:** As URLs não foram citadas na resposta. As informações podem não estar devidamente referenciadas."
+            else:
+                return f"❌ Erro na análise: {response.status_code} - {response.text}"
+                
+        except Exception as e:
+            return f"❌ Erro ao analisar URLs: {str(e)}"
 
     # Função para extrair texto de diferentes tipos de arquivo
     def extrair_texto_arquivo(arquivo):
@@ -5028,6 +5112,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
         3. Incorpore as mudanças solicitadas de forma natural
         4. Não remova informações importantes não mencionadas nas instruções
         5. Mantenha a consistência com o conteúdo existente
+        6. PRESERVE AS FONTES: mantenha todas as citações de fontes e links
         
         FORNECER APENAS O CONTEÚDO AJUSTADO, sem comentários ou explicações adicionais.
         """
@@ -5046,6 +5131,48 @@ with tab_mapping["✨ Geração de Conteúdo"]:
         
         with col1:
             st.subheader("📝 Fontes de Conteúdo")
+            
+            # Card especial para busca web
+            with st.expander("🔍 Busca Web com Fontes (Recomendado)", expanded=True):
+                st.info("""
+                **✨ RECOMENDAÇÃO:** Use a busca web para obter informações atualizadas e verídicas com fontes.
+                
+                **✅ Vantagens:**
+                - Informações atualizadas
+                - Fontes verificáveis
+                - Dados concretos
+                - Referências para credibilidade
+                """)
+                
+                # Opção para busca web (AGORA COM DESTAQUE)
+                usar_busca_web = st.checkbox(
+                    "🔍 Realizar busca web para obter informações atualizadas com fontes",
+                    value=True,  # Ativado por padrão
+                    help="Ativa busca por informações atualizadas na web usando Perplexity AI (SEMPRE retorna fontes)",
+                    key="usar_busca_web_conteudo"
+                )
+                
+                if usar_busca_web:
+                    if not perp_api_key:
+                        st.error("❌ API do Perplexity não configurada. Configure a variável de ambiente PERP_API_KEY.")
+                        st.info("💡 **Dica:** A busca web fornece informações atualizadas com fontes verificáveis, aumentando a credibilidade do conteúdo.")
+                    else:
+                        st.success("✅ Busca web disponível - Fontes serão SEMPRE incluídas")
+                        
+                        # Card de instruções para busca
+                        st.info("💡 **Como usar a busca web:** Digite termos específicos para obter informações atualizadas com fontes.")
+                        
+                        termos_busca = st.text_area(
+                            "🔎 Termos para busca web (obtenha informações com fontes):",
+                            height=100,
+                            placeholder="Ex: tendências marketing digital 2024, estatísticas redes sociais Brasil, exemplos campanhas bem-sucedidas...",
+                            help="Termos específicos para buscar informações atualizadas na web COM FONTES",
+                            key="termos_busca_conteudo"
+                        )
+                        
+                        # Contador de caracteres para termos de busca
+                        if termos_busca:
+                            st.caption(f"📝 {len(termos_busca)} caracteres")
             
             # Opção 1: Upload de múltiplos arquivos
             st.write("📎 Upload de Arquivos (PDF, TXT, PPTX, DOCX):")
@@ -5320,30 +5447,25 @@ Pontos-chave: [lista os principais pontos]""",
             else:
                 st.warning("⚠️ Nenhum agente selecionado")
             
-            # Opção para busca web
+            # Opção para análise de URLs específicas
             st.markdown("---")
-            st.subheader("🔍 Busca Web")
+            st.subheader("🌐 Análise de URLs Específicas")
             
-            usar_busca_web = st.checkbox(
-                "Realizar busca web para melhorar o conteúdo",
+            usar_analise_urls = st.checkbox(
+                "Analisar URLs específicas",
                 value=False,
-                help="Ativa busca por informações atualizadas na web usando Perplexity AI",
-                key="usar_busca_web"
+                help="Analise o conteúdo de URLs específicas em vez de busca geral",
+                key="usar_analise_urls"
             )
             
-            if usar_busca_web:
-                if not perp_api_key:
-                    st.error("❌ API do Perplexity não configurada. Configure a variável de ambiente PERP_API_KEY.")
-                else:
-                    st.success("✅ Busca web disponível")
-                    
-                    termos_busca = st.text_area(
-                        "Termos para busca web:",
-                        height=80,
-                        placeholder="Ex: tendências marketing digital 2024, estatísticas redes sociais Brasil, exemplos campanhas bem-sucedidas...",
-                        help="Termos específicos para buscar informações atualizadas na web",
-                        key="termos_busca"
-                    )
+            if usar_analise_urls:
+                urls_para_analise = st.text_area(
+                    "URLs para análise (uma por linha):",
+                    height=120,
+                    placeholder="https://exemplo.com/artigo1\nhttps://exemplo.com/artigo2\nhttps://exemplo.com/dados",
+                    help="Insira URLs específicas que deseja analisar. O sistema extrairá e analisará o conteúdo dessas páginas.",
+                    key="urls_analise"
+                )
             
             # Opção para o usuário escolher entre configurações padrão ou prompt personalizado
             modo_geracao = st.radio(
@@ -5384,6 +5506,13 @@ Pontos-chave: [lista os principais pontos]""",
                     
                     incluir_cta = st.checkbox("Incluir Call-to-Action", value=True, key="incluir_cta")
                     
+                    incluir_fontes_destaque = st.checkbox(
+                        "Destacar fontes no conteúdo",
+                        value=True,
+                        help="Incluir e destacar as fontes citadas no conteúdo gerado",
+                        key="incluir_fontes_destaque"
+                    )
+                    
                     formato_saida = st.selectbox("Formato de Saída:", 
                                                ["Texto Simples", "Markdown", "HTML Básico"],
                                                key="formato_saida")
@@ -5400,6 +5529,7 @@ Com base no contexto fornecido, crie um artigo detalhado que:
 2. Destaque os benefícios para o público-alvo
 3. Inclua exemplos práticos de aplicação
 4. Mantenha um tom {tom} e acessível
+5. **SEMPRE INCLUA AS FONTES** das informações
 
 Contexto: {contexto}
 
@@ -5428,6 +5558,13 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                 usar_contexto_agente = st.checkbox("Usar contexto do agente selecionado", 
                                                  value=bool(st.session_state.agente_selecionado),
                                                  key="contexto_personalizado")
+                
+                incluir_fontes_personalizado = st.checkbox(
+                    "Solicitar fontes no prompt",
+                    value=True,
+                    help="Garantir que o prompt exija fontes nas respostas",
+                    key="incluir_fontes_personalizado"
+                )
 
         # Área de instruções específicas (apenas para modo padrão)
         if modo_geracao == "Configurações Padrão":
@@ -5436,10 +5573,11 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                 "Diretrizes adicionais para geração:",
                 placeholder="""Exemplos:
 - Focar nos benefícios para o usuário final
-- Incluir estatísticas quando possível
+- Incluir estatísticas quando possível (COM FONTES)
 - Manter linguagem acessível
 - Evitar jargões técnicos excessivos
-- Seguir estrutura: problema → solução → benefícios""",
+- Seguir estrutura: problema → solução → benefícios
+- **SEMPRE CITAR FONTES** para dados e informações""",
                 height=100,
                 key="instrucoes_especificas"
             )
@@ -5450,10 +5588,12 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
             tem_conteudo = (arquivos_upload or 
                            briefing_manual or 
                            arquivos_midia or
-                           (textos_arquivos and textos_arquivos.strip()))
+                           (textos_arquivos and textos_arquivos.strip()) or
+                           (usar_busca_web and termos_busca) or
+                           (usar_analise_urls and urls_para_analise))
             
             if not tem_conteudo:
-                st.error("❌ Por favor, forneça pelo menos uma fonte de conteúdo (arquivos, briefing ou mídia)")
+                st.error("❌ Por favor, forneça pelo menos uma fonte de conteúdo (arquivos, briefing, mídia ou busca web)")
             elif modo_geracao == "Prompt Personalizado" and not prompt_personalizado:
                 st.error("❌ Por favor, escreva um prompt personalizado para geração")
             else:
@@ -5474,21 +5614,49 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                         if transcricoes_texto and transcricoes_texto.strip():
                             contexto_completo += "### TRANSCRIÇÕES DE MÍDIA:\n" + transcricoes_texto + "\n\n"
                         
-                        # Realizar busca web se solicitado
+                        # Realizar busca web se solicitado (COM FONTES OBRIGATÓRIAS)
                         busca_web_resultado = ""
                         if usar_busca_web and termos_busca and termos_busca.strip() and perp_api_key:
-                            with st.spinner("🔍 Realizando busca web..."):
+                            with st.spinner("🔍 Realizando busca web (obtendo fontes)..."):
                                 # Preparar contexto do agente para busca
                                 contexto_agente_busca = ""
                                 if st.session_state.agente_selecionado:
                                     agente = st.session_state.agente_selecionado
                                     contexto_agente_busca = construir_contexto(agente, st.session_state.segmentos_selecionados)
                                 
-                                busca_web_resultado = realizar_busca_web(termos_busca, contexto_agente_busca)
+                                # Usar a NOVA função que EXIGE fontes
+                                busca_web_resultado = realizar_busca_web_com_fontes(termos_busca, contexto_agente_busca)
                                 
                                 if "❌" not in busca_web_resultado:
-                                    contexto_completo += "### RESULTADOS DA BUSCA WEB:\n" + busca_web_resultado + "\n\n"
-                                    st.success("✅ Busca web realizada com sucesso!")
+                                    contexto_completo += f"### RESULTADOS DA BUSCA WEB ({termos_busca}):\n{busca_web_resultado}\n\n"
+                                    
+                                    # Verificar se há fontes no resultado
+                                    if any(keyword in busca_web_resultado.lower() for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com']):
+                                        st.success("✅ Busca web realizada com sucesso! Fontes incluídas.")
+                                    else:
+                                        st.warning("⚠️ Busca web realizada, mas fontes não foram explicitamente incluídas.")
+                        
+                        # Analisar URLs específicas se solicitado
+                        elif usar_analise_urls and urls_para_analise and urls_para_analise.strip() and perp_api_key:
+                            with st.spinner("🔍 Analisando URLs específicas..."):
+                                # Preparar contexto do agente para análise
+                                contexto_agente_analise = ""
+                                if st.session_state.agente_selecionado:
+                                    agente = st.session_state.agente_selecionado
+                                    contexto_agente_analise = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                                
+                                # Dividir URLs por linha
+                                urls_list = [url.strip() for url in urls_para_analise.split('\n') if url.strip()]
+                                
+                                if urls_list:
+                                    # Pergunta para orientar a análise
+                                    pergunta_analise = st.session_state.get('termos_busca_conteudo', termos_busca) if 'termos_busca_conteudo' in st.session_state else "Analise o conteúdo destas URLs"
+                                    
+                                    analise_urls_resultado = analisar_urls_com_fontes(urls_list, pergunta_analise, contexto_agente_analise)
+                                    
+                                    if "❌" not in analise_urls_resultado:
+                                        contexto_completo += f"### ANÁLISE DAS URLs:\n{analise_urls_resultado}\n\n"
+                                        st.success(f"✅ {len(urls_list)} URL(s) analisada(s) com sucesso!")
                         
                         # Adicionar contexto do agente se selecionado
                         contexto_agente = ""
@@ -5498,6 +5666,19 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                         
                         # Construir prompt final baseado no modo selecionado
                         if modo_geracao == "Configurações Padrão":
+                            # Adicionar instrução específica sobre fontes
+                            instrucoes_fontes = ""
+                            if usar_busca_web and termos_busca:
+                                instrucoes_fontes = "\n7. **SEMPRE CITAR FONTES:** Para todas as informações da busca web, inclua o nome do site e o link específico"
+                            
+                            # Verificar se deve destacar fontes
+                            destaque_fontes = ""
+                            if incluir_fontes_destaque:
+                                destaque_fontes = """
+                                8. **DESTACAR FONTES:** Use formatação para destacar as fontes (ex: **Fonte:** [Nome do Site](link))
+                                9. **CREDIBILIDADE:** A credibilidade do conteúdo depende das fontes citadas
+                                """
+                            
                             prompt_final = f"""
                             {contexto_agente}
                             
@@ -5511,6 +5692,8 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                             
                             **INSTRUÇÕES ESPECÍFICAS:**
                             {instrucoes_especificas if instrucoes_especificas else 'Nenhuma instrução específica fornecida.'}
+                            {instrucoes_fontes}
+                            {destaque_fontes}
                             
                             ## FONTES E REFERÊNCIAS:
                             {contexto_completo}
@@ -5523,10 +5706,17 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                             3. **Valor Agregado:** Vá além da simples cópia, agregando insights
                             4. **Engajamento:** Crie conteúdo que engaje o público-alvo
                             5. **Clareza:** Comunique ideias complexas de forma acessível
+                            6. **TRANSPARÊNCIA:** **SEMPRE cite as fontes específicas** para dados, estatísticas e informações importantes
+                            
+                            **IMPORTANTE SOBRE FONTES:**
+                            - Para cada dado ou informação da busca web, cite a fonte específica
+                            - Use formato: **Fonte:** [Nome do Site ou Autor] ([link completo])
+                            - Se múltiplas fontes confirmam algo, cite as principais
+                            - A credibilidade do conteúdo depende das fontes citadas
                             
                             **FORMATO DE SAÍDA:** {formato_saida}
                             
-                            Gere um conteúdo completo e profissional.
+                            Gere um conteúdo completo, profissional e com fontes verificáveis.
                             """
                         else:  # Prompt Personalizado
                             # Substituir variáveis no prompt personalizado
@@ -5534,6 +5724,10 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                             prompt_processado = prompt_processado.replace("{tom}", tom_personalizado if tom_personalizado.strip() else "adequado")
                             prompt_processado = prompt_processado.replace("{formato}", formato_personalizado)
                             prompt_processado = prompt_processado.replace("{palavras}", str(palavras_personalizado))
+                            
+                            # Adicionar instrução sobre fontes se marcado
+                            if incluir_fontes_personalizado:
+                                prompt_processado += "\n\n**IMPORTANTE:** SEMPRE cite as fontes das informações, incluindo nome do site e link específico."
                             
                             prompt_final = f"""
                             {contexto_agente}
@@ -5552,13 +5746,15 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                         
                         # Processar saída baseada no formato selecionado
                         if formato_output == "HTML Básico" or formato_output == "HTML básico":
-                            # Converter markdown para HTML básico
+                            # Converter markdown para HTML básico (mantendo links de fontes)
                             import re
                             conteudo_html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', conteudo_gerado)
                             conteudo_html = re.sub(r'\*(.*?)\*', r'<em>\1</em>', conteudo_html)
                             conteudo_html = re.sub(r'### (.*?)\n', r'<h3>\1</h3>', conteudo_html)
                             conteudo_html = re.sub(r'## (.*?)\n', r'<h2>\1</h2>', conteudo_html)
                             conteudo_html = re.sub(r'# (.*?)\n', r'<h1>\1</h1>', conteudo_html)
+                            # Converter links markdown para HTML
+                            conteudo_html = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2" target="_blank">\1</a>', conteudo_html)
                             conteudo_html = conteudo_html.replace('\n', '<br>')
                         
                         # Armazenar no session state para uso posterior
@@ -5566,12 +5762,13 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                         st.session_state.tipo_conteudo_gerado = tipo_conteudo if modo_geracao == "Configurações Padrão" else "personalizado"
                         st.session_state.modelo_utilizado_geracao = modelo_principal
                         st.session_state.formato_output = formato_output
+                        st.session_state.contexto_usado = contexto_completo  # Salvar o contexto usado
                         
                         # Determinar extensão do arquivo
                         extensao = ".html" if "HTML" in formato_output else ".md" if "markdown" in formato_output.lower() else ".txt"
                         
                         # Mostrar conteúdo gerado
-                        st.subheader("📄 Conteúdo Gerado")
+                        st.subheader("📄 Conteúdo Gerado (com Fontes)")
                         
                         if formato_output == "HTML Básico" or formato_output == "HTML básico":
                             st.components.v1.html(conteudo_html, height=400, scrolling=True)
@@ -5579,6 +5776,10 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                         else:
                             st.markdown(conteudo_gerado)
                             conteudo_download = conteudo_gerado
+                        
+                        # Verificar se há fontes no conteúdo gerado
+                        conteudo_lower = conteudo_gerado.lower()
+                        tem_fontes = any(keyword in conteudo_lower for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br'])
                         
                         # Estatísticas
                         palavras_count = len(conteudo_gerado.split())
@@ -5590,7 +5791,20 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                         with col_stat3:
                             st.metric("Modelo Utilizado", modelo_principal)
                         with col_stat4:
-                            st.metric("Busca Web", "✅" if usar_busca_web and termos_busca else "❌")
+                            fonte_status = "✅" if tem_fontes else "⚠️"
+                            st.metric("Fontes Incluídas", fonte_status)
+                        
+                        # Mostrar aviso se não houver fontes
+                        if not tem_fontes and (usar_busca_web or usar_analise_urls):
+                            st.warning("""
+                            ⚠️ **ATENÇÃO:** O conteúdo gerado não parece conter fontes explícitas.
+                            
+                            **Sugestões:**
+                            1. Verifique se a busca web retornou informações com fontes
+                            2. Tente reformular os termos de busca
+                            3. Use o modo "Configurações Padrão" com "Destacar fontes" ativado
+                            4. Solicite explicitamente fontes no prompt personalizado
+                            """)
                         
                         # Botões de download
                         col_dl1, col_dl2 = st.columns(2)
@@ -5617,10 +5831,13 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                                         "numero_palavras": palavras_count,
                                         "conteudo_gerado": conteudo_gerado,
                                         "usou_busca_web": usar_busca_web and termos_busca,
+                                        "tem_fontes": tem_fontes,
                                         "fontes_utilizadas": {
                                             "arquivos_upload": [arquivo.name for arquivo in arquivos_upload] if arquivos_upload else [],
                                             "briefing_manual": bool(briefing_manual and briefing_manual.strip()),
-                                            "transcricoes": len(arquivos_midia) if arquivos_midia else 0
+                                            "transcricoes": len(arquivos_midia) if arquivos_midia else 0,
+                                            "busca_web": termos_busca if usar_busca_web and termos_busca else None,
+                                            "analise_urls": urls_para_analise.split('\n') if usar_analise_urls and urls_para_analise else []
                                         },
                                         "agente_utilizado": st.session_state.agente_selecionado.get('nome') if st.session_state.agente_selecionado else "Nenhum",
                                         "data_criacao": datetime.datetime.now()
@@ -5652,6 +5869,8 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                                     st.caption(f"📝 {item.get('numero_palavras', 0)} palavras")
                                     if item.get('usou_busca_web'):
                                         st.caption("🔍 Com busca web")
+                                    if item.get('tem_fontes', False):
+                                        st.caption("📚 Com fontes")
                                 
                                 with col_hist2:
                                     if st.button("📋 Ver", key=f"ver_{item['_id']}"):
@@ -5668,6 +5887,10 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                         st.markdown(st.session_state.conteudo_selecionado['conteudo_gerado'][:500] + "..." 
                                   if len(st.session_state.conteudo_selecionado['conteudo_gerado']) > 500 
                                   else st.session_state.conteudo_selecionado['conteudo_gerado'])
+                        
+                        # Verificar fontes no conteúdo selecionado
+                        if st.session_state.conteudo_selecionado.get('tem_fontes', False):
+                            st.success("✅ Este conteúdo inclui fontes")
                         
                         if st.button("Fechar", key="fechar_conteudo"):
                             del st.session_state.conteudo_selecionado
@@ -5710,6 +5933,15 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
             with col_info3:
                 st.metric("Formato", st.session_state.formato_output)
             
+            # Verificar se o conteúdo tem fontes
+            conteudo_lower = st.session_state.conteudo_gerado.lower()
+            tem_fontes = any(keyword in conteudo_lower for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br'])
+            
+            if tem_fontes:
+                st.success("✅ Este conteúdo contém fontes citadas")
+            else:
+                st.warning("⚠️ Este conteúdo não parece conter fontes explícitas")
+            
             # Área para visualização do conteúdo atual
             st.subheader("📄 Conteúdo Atual")
             with st.expander("Ver conteúdo completo", expanded=True):
@@ -5722,13 +5954,14 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                 "Descreva o que deseja ajustar no conteúdo:",
                 height=150,
                 placeholder="""Exemplos:
-- Adicione mais estatísticas na introdução
+- Adicione mais estatísticas na introdução (COM FONTES)
 - Torne o tom mais formal na seção técnica
 - Inclua um exemplo prático no terceiro parágrafo
 - Resuma a conclusão para ficar mais direta
 - Adicione uma chamada para ação mais urgente
-- Reforce os benefícios principais no segundo tópico""",
-                help="Descreva especificamente o que deseja modificar no conteúdo existente",
+- Reforce os benefícios principais no segundo tópico
+- **IMPORTANTE:** Mantenha todas as fontes citadas""",
+                help="Descreva especificamente o que deseja modificar no conteúdo existente. Lembre-se de mencionar se quer manter/atualizar as fontes.",
                 key="instrucoes_ajuste"
             )
             
@@ -5750,6 +5983,13 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                     key="usar_contexto_ajuste",
                     help="Usar as diretrizes do agente durante os ajustes"
                 )
+                
+                preservar_fontes = st.checkbox(
+                    "Preservar fontes existentes",
+                    value=True,
+                    key="preservar_fontes",
+                    help="Manter todas as citações de fontes no conteúdo ajustado"
+                )
             
             # Botão para aplicar ajuste
             if st.button("🔄 Aplicar Ajustes", type="primary", key="aplicar_ajustes_btn"):
@@ -5764,10 +6004,16 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                                 agente = st.session_state.agente_selecionado
                                 contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
                             
+                            # Adicionar instrução sobre preservar fontes
+                            if preservar_fontes:
+                                instrucoes_ajuste_completa = f"{instrucoes_ajuste}\n\nIMPORTANTE: Mantenha todas as fontes citadas no conteúdo original. Não remova ou altere as referências às fontes existentes."
+                            else:
+                                instrucoes_ajuste_completa = instrucoes_ajuste
+                            
                             # Aplicar ajustes incrementais
                             conteudo_ajustado = ajustar_conteudo_incremental(
                                 st.session_state.conteudo_gerado,
-                                instrucoes_ajuste,
+                                instrucoes_ajuste_completa,
                                 modelo_ajuste,
                                 contexto_agente
                             )
@@ -5776,6 +6022,15 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                                 st.error(conteudo_ajustado)
                             else:
                                 st.success("✅ Ajustes aplicados com sucesso!")
+                                
+                                # Verificar se ainda há fontes após ajuste
+                                conteudo_ajustado_lower = conteudo_ajustado.lower()
+                                tem_fontes_apos = any(keyword in conteudo_ajustado_lower for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br'])
+                                
+                                if tem_fontes_apos:
+                                    st.success("✅ Fontes preservadas no conteúdo ajustado")
+                                elif preservar_fontes and tem_fontes:
+                                    st.warning("⚠️ As fontes podem ter sido alteradas durante o ajuste")
                                 
                                 # Atualizar o conteúdo no session state
                                 st.session_state.conteudo_gerado = conteudo_ajustado
@@ -5821,16 +6076,19 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                                     st.metric("Modelo Ajuste", modelo_ajuste)
                                 
                                 with col_stats3:
-                                    st.metric("Ajustes Feitos", "✅")
+                                    fontes_status = "✅" if tem_fontes_apos else "⚠️"
+                                    st.metric("Fontes Preservadas", fontes_status)
                                 
                                 # Salvar versão ajustada no histórico
                                 if mongo_connected_conteudo:
                                     try:
                                         historico_ajuste = {
                                             "tipo": "ajuste_incremental",
-                                            "conteudo_original_id": "atual",  # Poderia ser um ID real
+                                            "conteudo_original_id": "atual",
                                             "instrucoes_ajuste": instrucoes_ajuste,
                                             "modelo_utilizado": modelo_ajuste,
+                                            "preservou_fontes": preservar_fontes,
+                                            "tem_fontes_apos": tem_fontes_apos,
                                             "conteudo_ajustado": conteudo_ajustado,
                                             "data_ajuste": datetime.datetime.now()
                                         }
@@ -5864,7 +6122,6 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                 
                 with col_dl2:
                     if st.button("🔄 Reiniciar do Original", key="reiniciar_conteudo"):
-                        # Aqui você poderia carregar a versão original do histórico se tivesse
                         st.info("Para reiniciar, gere um novo conteúdo na aba de geração.")
                 
                 with col_dl3:
