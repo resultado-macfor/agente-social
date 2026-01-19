@@ -3493,35 +3493,90 @@ with tab_mapping["✅ Validação Unificada"]:
                         with st.spinner(f'Analisando legendas no vídeo {idx+1} de {len(uploaded_videos_legendas)}: {uploaded_video.name}...'):
                             try:
                                 # Criar prompt específico para análise de legendas
-                                prompt_legendas = f"""
-                                Analise este vídeo e verifique se as legendas embutidas (texto visível no vídeo) estão sincronizadas com o áudio.
-                                
-                                INSTRUÇÕES:
-                                1. Detecte todas as legendas visíveis no vídeo
-                                2. Transcreva o áudio do vídeo com timestamps
-                                3. Compare o texto das legendas com a transcrição do áudio
-                                4. Identifique onde NÃO estão batendo (diferenças textuais ou de timing)
-                                
-                                LINGUAGEM DO ÁUDIO: {linguagem_audio}
-                                TOLERÂNCIA DE SINCRONIZAÇÃO: {sensibilidade} segundos
-                                
-                                FORMATO DA RESPOSTA:
-                                ## 🎬 {uploaded_video.name}
-                                
-                                ### 📋 RESUMO DA ANÁLISE
-                                [Resumo geral da sincronização]
-                                
-                                ### ❌ PROBLEMAS ENCONTRADOS
-                                [Lista os problemas encontrados com MARCADORES DE TEMPO]
-                                
-                                ### ✅ PARTES CORRETAS
-                                [Partes onde legenda e áudio estão sincronizados]
-                                
-                                ### 🎯 RECOMENDAÇÕES
-                                [Sugestões para corrigir os problemas]
-                                
-                                **IMPORTANTE:** Para cada problema, inclua o MARCADOR DE TEMPO aproximado (ex: 00:45, 1:30, 2:15)
-                                """
+                                prompt_legendas = f'''
+                                INSTRUÇÕES PARA ANÁLISE DE SINCRONIZAÇÃO LEGENDA-ÁUDIO
+
+Objetivo: Analisar o vídeo fornecido para verificar a precisão e o sincronismo entre as legendas embutidas (texto visível no vídeo) e o áudio. O foco principal é identificar discrepâncias.
+
+Parâmetros da Análise:
+
+    Linguagem do Áudio: {linguagem_audio}
+
+    Tolerância de Sincronização (Timing): {sensibilidade} segundos. Diferenças menores que este valor não são consideradas problemas.
+
+    Checagem de Estilo de Texto: A análise deve flagrar erros de capitalização, como letra maiúscula indevida após vírgula dentro de uma frase.
+
+Passos da Análise:
+
+    Detecção de Legendas: Utilize OCR para detectar e extrair todo o texto visível (legendas embutidas) no vídeo, registrando seus timestamps de entrada e saída.
+
+    Transcrição do Áudio: Transcreva com precisão o áudio do vídeo, gerando uma transcrição com timestamps por frase ou segmento significativo.
+
+    Comparação e Validação:
+    a. Sincronismo (Timing): Para cada bloco de legenda, verifique se o texto correspondente no áudio é falado dentro da janela de tempo definida pela legenda +/- a tolerância.
+    b. Precisão Textual: Compare o texto da legenda com a transcrição do áudio correspondente. Identifique:
+    * Omissões de palavras.
+    * Acréscimos de palavras não faladas.
+    * Substituições ou erros de palavras.
+    * Diferenças de pontuação que alterem o sentido.
+    * Erros de Capitalização: Ex: Letra maiúscula incorreta após uma vírgula no meio de uma frase (ex: "Vamos lá, Como está?").
+
+Formato do Relatório de Saída:
+
+CASO A: Sincronização Correta (Sem Problemas)
+Se, e somente se, não forem encontrados problemas de timing (dentro da tolerância) OU de texto (incluindo os erros de capitalização especificados), retorne APENAS a seguinte mensagem:
+
+    ✅ STATUS: SINCRONIZAÇÃO VERIFICADA.
+    As legendas embutidas no vídeo "{uploaded_video.name}" estão perfeitamente sincronizadas com o áudio e textualmente corretas dentro dos parâmetros definidos (Tolerância: {sensibilidade}s). Nenhuma ação é necessária.
+
+CASO B: Problemas Encontrados
+Se QUALQUER problema for detectado (de timing, texto ou capitalização), retorne um relatório completo no seguinte formato:
+🎬 Relatório de Análise: {uploaded_video.name}
+📋 Resumo Executivo
+
+    Status Geral: ❌ Sincronização com Problemas.
+
+    Total de Problemas Identificados: [X]
+
+        Problemas de Timing/Janela: [Y]
+
+        Problemas Textuais (Conteúdo): [Z]
+
+    Conclusão Rápida: [Uma ou duas linhas resumindo a qualidade geral, ex: "As legendas estão geralmente atrasadas e contêm vários erros de digitação."]
+
+❌ Problemas Detalhados (Com Timestamps)
+
+Liste cada problema encontrado, na ordem cronológica. Use o formato abaixo para cada item:
+
+    [MM:SS] - [TIPO DE PROBLEMA]
+
+        Legenda no Vídeo: "[Texto exato da legenda conforme exibido]"
+
+        Áudio Transcrito: "[Texto exato falado no áudio]"
+
+        Descrição: [Explicação clara do problema. Ex: "Legenda exibida 2.5s antes da fala.", "Substituição de palavra.", "Capitalização incorreta após vírgula."]
+
+✅ Trechos Corretos
+
+[Liste brevemente os intervalos de tempo (ex: 00:00-00:15, 01:30-02:00) onde a sincronização e o texto estavam perfeitos, se aplicável e relevante. Pode ser omitido se houver poucos acertos.]
+🎯 Recomendações para Correção
+
+[Forneça sugestões específicas e acionáveis com base nos problemas encontrados, por exemplo:]
+
+    Ajuste de Timing: Ajuste todas as legendas a partir de [MM:SS] com um delay de aproximadamente [X] segundos.
+
+    Revisão Textual: Corrija as palavras específicas citadas na seção de problemas.
+
+    Revisão de Estilo: Verifique as regras de capitalização, especialmente após vírgulas.
+
+Notas Finais para o Analista:
+
+    Seja meticuloso na comparação textual, incluindo a verificação do erro de maiúscula pós-vírgula.
+
+    Os timestamps nos problemas devem referenciar o momento aproximado no vídeo onde o erro é perceptível.
+
+    O relatório deve ser factual, direto e útil para um editor de vídeo ou legendas corrigir os itens.
+                                '''
                                 
                                 # Usar modelo de visão para análise
                                 response = modelo_vision.generate_content([
@@ -4848,7 +4903,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
             mensagem_sistema = contexto_agente if contexto_agente else "Você é um assistente de pesquisa que fornece informações precisas e atualizadas."
             
             data = {
-                "model": "sonar-medium-online",
+                "model": "sonar",
                 "messages": [
                     {
                         "role": "system",
@@ -4863,6 +4918,8 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                         2. Tendências recentes
                         3. Exemplos práticos
                         4. Fontes confiáveis
+                        5. Link de fonte - SEMPRE ESCREVA ISSO NO RETORNO
+                        6. Fonte utilizada - SEMPRE ESCREVA ISSO NO RETORNO
                         
                         Seja conciso e factual."""
                     }
