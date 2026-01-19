@@ -4902,7 +4902,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
             
             # PROMPT MODIFICADO: EXIGIR SEMPRE FONTES
             data = {
-                "model": "sonar",
+                "model": "sonar-pro",
                 "messages": [
                     {
                         "role": "system",
@@ -4910,7 +4910,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                     },
                     {
                         "role": "user", 
-                        "content": f"""Realize uma busca na web sobre: {termos_busca}
+                        "content": f"""Notícias recentes sobre: {termos_busca}
                         
                         FORNECER INFORMAÇÕES COM:
                         1. Dados e estatísticas atualizadas - SEMPRE COM FONTE
@@ -4928,7 +4928,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                         [Informação 1] Fonte: [Nome do Site] ([link])
                         [Informação 2] Fonte: [Nome do Site] ([link])
                         
-                        Seja conciso, factual e sempre forneça as fontes."""
+                        sempre forneça as fontes."""
                     }
                 ],
                 "max_tokens": 2500,
