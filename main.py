@@ -4820,7 +4820,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                             model="gpt-4o-mini",
                             messages=messages,
                             max_tokens=4000,
-                            temperature=0.7
+                            temperature=0.0
                         )
                         return response.choices[0].message.content
                     except Exception as fallback_error:
@@ -6333,7 +6333,7 @@ with tab_mapping["Monitoramento de Redes"]:
         else:
             # Fallback para prompt padrão se não houver agente selecionado
             system_prompt = """
-            PERSONALIDADE: Especialista técnico do agronegócio com habilidade social - "Especialista que fala como gente"
+            PERSONALIDADE: Especialista com habilidade social - "Especialista que fala como gente"
 
             TOM DE VOZ:
             - Técnico, confiável e seguro, mas acessível
@@ -6386,7 +6386,7 @@ with tab_mapping["Monitoramento de Redes"]:
         - Perguntas técnicas: seja preciso e didático
         - Perguntas sociais: seja leve e engajador  
         - Críticas ou problemas: seja construtivo e proativo
-        - Forneça respostas breves - 1 a 3 frases
+        - Forneça respostas breves - 1 a 2 frases
 
         TOM DE VOZ (BASEADO NO FEEDBACK):
             - Equilíbrio entre institucional e casual
@@ -6397,6 +6397,7 @@ with tab_mapping["Monitoramento de Redes"]:
             - Respostas para emojis isolados devem ser apenas emojis também
             - Não inventar informações técnicas
             - Reconhecer elogios de forma genuína mas sucinta
+            - Forneça respostas breves - 1 a 2 frases
 
             FEEDBACK A CONSIDERAR:
             1. PARA PERGUNTAS DIRETAS: Responder de fato à pergunta, não ser genérico
@@ -6405,6 +6406,7 @@ with tab_mapping["Monitoramento de Redes"]:
             4. PARA SUGESTÕES: Reconhecer a sugestão e mostrar abertura
             5. PARA COMENTÁRIOS FORA DE CONTEXTO: Não responder com informações irrelevantes
             6. PARA APENAS EMOJIS: Responder apenas com emojis também
+            - Forneça respostas breves - 1 a 2 frases
 
            
         
