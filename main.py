@@ -4813,7 +4813,6 @@ with tab_mapping["✨ Geração de Conteúdo"]:
         openai_client = OpenAI(api_key=openai_api_key)
     else:
         openai_client = None
-        st.sidebar.warning("⚠️ OPENAI_API_KEY não configurada")
     
     # Conexão com MongoDB para briefings
     try:
@@ -4822,7 +4821,6 @@ with tab_mapping["✨ Geração de Conteúdo"]:
         collection_briefings = db_briefings['briefings']
         mongo_connected_conteudo = True
     except Exception as e:
-        st.error(f"Erro na conexão com MongoDB: {str(e)}")
         mongo_connected_conteudo = False
 
     # Função para gerar conteúdo com diferentes modelos
@@ -4854,7 +4852,6 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                 
             elif modelo_escolhido == "OpenAI" and openai_client:
                 try:
-                    # Usar a nova API de responses se disponível
                     response = openai_client.responses.create(
                         model="gpt-4o-mini",
                         input=prompt,
@@ -4862,7 +4859,6 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                     )
                     return response.output_text
                 except Exception as openai_error:
-                    # Fallback para a API de chat tradicional
                     try:
                         messages = []
                         if contexto_agente:
@@ -4885,7 +4881,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
         except Exception as e:
             return f"❌ Erro ao gerar conteúdo com {modelo_escolhido}: {str(e)}"
 
-    # FUNÇÃO PARA BUSCA WEB COM FONTES - CORRIGIDA E FUNCIONAL
+    # FUNÇÃO PARA BUSCA WEB COM FONTES
     def realizar_busca_web_com_fontes(termos_busca: str, contexto_agente: str = None) -> str:
         """Realiza busca web usando API do Perplexity e RETORNA SEMPRE AS FONTES"""
         if not perp_api_key:
@@ -4897,10 +4893,8 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                 "Content-Type": "application/json"
             }
             
-            # Construir mensagem com contexto e EXIGÊNCIA EXPLÍCITA de fontes
             mensagem_sistema = contexto_agente if contexto_agente else "Você é um assistente de pesquisa que fornece informações precisas e atualizadas COM FONTES."
             
-            # PROMPT MODIFICADO: EXIGIR SEMPRE FONTES COM FORMATO ESPECÍFICO
             data = {
                 "model": "sonar-pro",
                 "messages": [
@@ -4938,19 +4932,16 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                 "https://api.perplexity.ai/chat/completions",
                 headers=headers,
                 json=data,
-                timeout=60  # Aumentar timeout para busca mais complexa
+                timeout=60
             )
             
             if response.status_code == 200:
                 result = response.json()
                 resposta_completa = result['choices'][0]['message']['content']
                 
-                # Verificar se há fontes na resposta
                 if any(keyword in resposta_completa.lower() for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br', '.org', '.gov']):
-                    st.success("✅ Busca web realizada com fontes!")
                     return resposta_completa
                 else:
-                    # Se não houver fontes, adicionar um aviso e tentar reformular
                     return f"{resposta_completa}\n\n⚠️ **AVISO:** As fontes não foram incluídas na resposta. Recomendo reformular a busca para termos mais específicos."
             else:
                 return f"❌ Erro na busca web (código {response.status_code}): {response.text}"
@@ -4969,7 +4960,6 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                 "Content-Type": "application/json"
             }
             
-            # Construir contexto com URLs
             urls_contexto = "\n".join([f"- {url}" for url in urls])
             
             messages = []
@@ -5022,7 +5012,6 @@ Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando
                 result = response.json()
                 resposta_completa = result['choices'][0]['message']['content']
                 
-                # Verificar se há citações de URLs na resposta
                 if any(url in resposta_completa for url in urls):
                     return resposta_completa
                 else:
@@ -5140,110 +5129,58 @@ Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando
         with col1:
             st.subheader("📝 Fontes de Conteúdo")
             
-            # Card especial para busca web
-            with st.expander("🔍 Busca Web com Fontes (Recomendado)", expanded=True):
-                st.info("""
-                **✨ RECOMENDAÇÃO:** Use a busca web para obter informações atualizadas e verídicas com fontes.
-                
-                **✅ Vantagens:**
-                - Informações atualizadas (últimos 2-3 anos)
-                - Fontes verificáveis e ancoradas
-                - Dados concretos e estatísticas
-                - Referências para credibilidade
-                - Citações específicas com links
-                """)
-                
-                # Opção para busca web (AGORA COM DESTAQUE)
-                usar_busca_web = st.checkbox(
-                    "🔍 Realizar busca web para obter informações atualizadas com fontes",
-                    value=True,  # Ativado por padrão
-                    help="Ativa busca por informações atualizadas na web usando Perplexity AI (SEMPRE retorna fontes ancoradas)",
-                    key="usar_busca_web_conteudo"
-                )
-                
-                if usar_busca_web:
-                    if not perp_api_key:
-                        st.error("❌ API do Perplexity não configurada. Configure a variável de ambiente PERP_API_KEY.")
-                        st.info("💡 **Dica:** A busca web fornece informações atualizadas com fontes verificáveis, aumentando a credibilidade do conteúdo.")
-                    else:
-                        st.success("✅ Busca web disponível - Fontes serão SEMPRE incluídas e ancoradas")
-                        
-                        # Card de instruções para busca
-                        st.info("💡 **Como usar a busca web:** Digite termos específicos para obter informações atualizadas com fontes.")
-                        
-                        termos_busca = st.text_area(
-                            "🔎 Termos para busca web (obtenha informações com fontes):",
-                            height=100,
-                            placeholder="Ex: tendências marketing digital 2024, estatísticas redes sociais Brasil, exemplos campanhas bem-sucedidas...",
-                            help="Termos específicos para buscar informações atualizadas na web COM FONTES ANCORADAS",
-                            key="termos_busca_conteudo"
-                        )
-                        
-                        # Contador de caracteres para termos de busca
-                        if termos_busca:
-                            st.caption(f"📝 {len(termos_busca)} caracteres")
-                            
-                           
+            usar_busca_web = st.checkbox(
+                "🔍 Realizar busca web para obter informações atualizadas com fontes",
+                value=True,
+                key="usar_busca_web_conteudo"
+            )
             
-            # Opção 1: Upload de múltiplos arquivos
+            if usar_busca_web:
+                if not perp_api_key:
+                    st.write("❌ API do Perplexity não configurada. Configure a variável de ambiente PERP_API_KEY.")
+                else:
+                    termos_busca = st.text_area(
+                        "🔎 Termos para busca web (obtenha informações com fontes):",
+                        height=100,
+                        placeholder="Ex: tendências marketing digital 2024, estatísticas redes sociais Brasil, exemplos campanhas bem-sucedidas...",
+                        key="termos_busca_conteudo"
+                    )
+                    
+                    if termos_busca:
+                        st.write(f"📝 {len(termos_busca)} caracteres")
+            
+            # Upload de múltiplos arquivos
             st.write("📎 Upload de Arquivos (PDF, TXT, PPTX, DOCX):")
             arquivos_upload = st.file_uploader(
                 "Selecione um ou mais arquivos:",
                 type=['pdf', 'txt', 'pptx', 'ppt', 'docx', 'doc'],
                 accept_multiple_files=True,
-                help="Arquivos serão convertidos para texto e usados como base para geração de conteúdo",
                 key="arquivos_conteudo"
             )
             
-            # Processar arquivos uploadados
             textos_arquivos = ""
             if arquivos_upload:
-                st.success(f"✅ {len(arquivos_upload)} arquivo(s) carregado(s)")
-                
-                with st.expander("📋 Visualizar Conteúdo dos Arquivos", expanded=False):
-                    for i, arquivo in enumerate(arquivos_upload):
-                        st.write(f"**{arquivo.name}** ({arquivo.size} bytes)")
-                        with st.spinner(f"Processando {arquivo.name}..."):
-                            texto_extraido = extrair_texto_arquivo(arquivo)
-                            textos_arquivos += f"\n\n--- CONTEÚDO DE {arquivo.name.upper()} ---\n{texto_extraido}"
-                            
-                            # Mostrar preview
-                            if len(texto_extraido) > 500:
-                                st.text_area(f"Preview - {arquivo.name}", 
-                                           value=texto_extraido[:500] + "...", 
-                                           height=100,
-                                           key=f"preview_{i}")
-                            else:
-                                st.text_area(f"Preview - {arquivo.name}", 
-                                           value=texto_extraido, 
-                                           height=100,
-                                           key=f"preview_{i}")
+                for i, arquivo in enumerate(arquivos_upload):
+                    texto_extraido = extrair_texto_arquivo(arquivo)
+                    textos_arquivos += f"\n\n--- CONTEÚDO DE {arquivo.name.upper()} ---\n{texto_extraido}"
             
-            # Opção 2: Upload de imagem para geração de legenda
+            # Upload de imagem para geração de legenda
             st.write("🖼️ Gerar Legenda para Imagem:")
             imagem_upload = st.file_uploader(
                 "Selecione uma imagem:",
                 type=['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'],
-                help="A legenda será gerada com base na imagem e no contexto do agente selecionado",
                 key="imagem_conteudo"
             )
             
-            # Mostrar preview da imagem se carregada
             if imagem_upload:
                 col_img1, col_img2 = st.columns([1, 2])
                 with col_img1:
                     st.image(imagem_upload, caption="Imagem Carregada", use_container_width=True)
-                    st.write(f"**Arquivo:** {imagem_upload.name}")
-                    st.write(f"**Tamanho:** {imagem_upload.size / 1024:.1f} KB")
                 
                 with col_img2:
-                    # Configurações específicas para legenda de imagem
-                    st.subheader("Configurações da Legenda")
-                    
                     estilo_legenda = st.selectbox(
                         "Estilo da Legenda:",
                         ["Descritiva", "Criativa", "Técnica", "Comercial", "Emocional", "Storytelling"],
-                        help="Escolha o estilo da legenda a ser gerada",
                         key="estilo_legenda"
                     )
                     
@@ -5256,148 +5193,129 @@ Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando
                     
                     incluir_hashtags = st.checkbox("Incluir hashtags relevantes", value=True, key="hashtags_legenda")
                     
-                    # Seletor de modelo para legenda
                     modelo_legenda = st.selectbox(
                         "Modelo para gerar legenda:",
                         ["Gemini", "Claude", "OpenAI"],
-                        help="Escolha o modelo para gerar a legenda",
                         key="modelo_legenda_select"
                     )
                     
-                    # Botão para gerar legenda individual
                     if st.button("📝 Gerar Legenda para esta Imagem", use_container_width=True, key="gerar_legenda_btn"):
                         if not st.session_state.agente_selecionado:
-                            st.error("❌ Selecione um agente primeiro para usar seu contexto na geração da legenda")
+                            st.write("❌ Selecione um agente primeiro para usar seu contexto na geração da legenda")
                         else:
-                            with st.spinner("Analisando imagem e gerando legenda..."):
-                                try:
-                                    # Preparar contexto do agente
-                                    contexto_agente = ""
-                                    if st.session_state.agente_selecionado:
-                                        agente = st.session_state.agente_selecionado
-                                        contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                            try:
+                                contexto_agente = ""
+                                if st.session_state.agente_selecionado:
+                                    agente = st.session_state.agente_selecionado
+                                    contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                                
+                                prompt_legenda = f"""
+                                ## GERAÇÃO DE LEGENDA PARA IMAGEM:
+                                
+                                **ESTILO SOLICITADO:** {estilo_legenda}
+                                **COMPRIMENTO:** {comprimento_legenda}
+                                **INCLUIR HASHTAGS:** {incluir_hashtags}
+                                
+                                ## TAREFA:
+                                Analise a imagem e gere uma legenda que:
+                                
+                                1. **Descreva** accuratamente o conteúdo visual
+                                2. **Contextualize** com base no conhecimento do agente selecionado
+                                3. **Engaje** o público-alvo apropriado
+                                4. **Siga** o estilo {estilo_legenda.lower()}
+                                5. **Tenha** comprimento {comprimento_legenda.lower()}
+                                { "6. **Inclua** hashtags relevantes ao final" if incluir_hashtags else "" }
+                                
+                                Seja criativo mas mantenha a precisão factual.
+                                """
+                                
+                                if modelo_legenda == "Gemini":
+                                    modelo_visao = genai.GenerativeModel('gemini-2.0-flash')
+                                    resposta_legenda = modelo_visao.generate_content([
+                                        prompt_legenda,
+                                        {"mime_type": imagem_upload.type, "data": imagem_upload.getvalue()}
+                                    ])
+                                    legenda_gerada = resposta_legenda.text
                                     
-                                    # Construir prompt para legenda
-                                    prompt_legenda = f"""
-                                    ## GERAÇÃO DE LEGENDA PARA IMAGEM:
-                                    
-                                    **ESTILO SOLICITADO:** {estilo_legenda}
-                                    **COMPRIMENTO:** {comprimento_legenda}
-                                    **INCLUIR HASHTAGS:** {incluir_hashtags}
-                                    
-                                    ## TAREFA:
-                                    Analise a imagem e gere uma legenda que:
-                                    
-                                    1. **Descreva** accuratamente o conteúdo visual
-                                    2. **Contextualize** com base no conhecimento do agente selecionado
-                                    3. **Engaje** o público-alvo apropriado
-                                    4. **Siga** o estilo {estilo_legenda.lower()}
-                                    5. **Tenha** comprimento {comprimento_legenda.lower()}
-                                    { "6. **Inclua** hashtags relevantes ao final" if incluir_hashtags else "" }
-                                    
-                                    Seja criativo mas mantenha a precisão factual.
-                                    """
-                                    
-                                    # Escolher método baseado no modelo selecionado
-                                    if modelo_legenda == "Gemini":
-                                        # Usar modelo Gemini Vision
-                                        modelo_visao = genai.GenerativeModel('gemini-2.0-flash')
-                                        resposta_legenda = modelo_visao.generate_content([
-                                            prompt_legenda,
-                                            {"mime_type": imagem_upload.type, "data": imagem_upload.getvalue()}
-                                        ])
-                                        legenda_gerada = resposta_legenda.text
+                                elif modelo_legenda == "OpenAI" and openai_client:
+                                    try:
+                                        import base64
+                                        encoded_image = base64.b64encode(imagem_upload.getvalue()).decode('utf-8')
                                         
-                                    elif modelo_legenda == "OpenAI" and openai_client:
-                                        try:
-                                            # Para OpenAI, podemos usar GPT-4o com visão se disponível
-                                            import base64
-                                            
-                                            # Codificar imagem em base64
-                                            encoded_image = base64.b64encode(imagem_upload.getvalue()).decode('utf-8')
-                                            
-                                            response = openai_client.chat.completions.create(
-                                                model="gpt-4o-mini",
-                                                messages=[
-                                                    {
-                                                        "role": "system",
-                                                        "content": contexto_agente if contexto_agente else "Você é um especialista em geração de legendas para mídias sociais."
-                                                    },
-                                                    {
-                                                        "role": "user",
-                                                        "content": [
-                                                            {"type": "text", "text": prompt_legenda},
-                                                            {
-                                                                "type": "image_url",
-                                                                "image_url": {
-                                                                    "url": f"data:image/jpeg;base64,{encoded_image}"
-                                                                }
+                                        response = openai_client.chat.completions.create(
+                                            model="gpt-4o-mini",
+                                            messages=[
+                                                {
+                                                    "role": "system",
+                                                    "content": contexto_agente if contexto_agente else "Você é um especialista em geração de legendas para mídias sociais."
+                                                },
+                                                {
+                                                    "role": "user",
+                                                    "content": [
+                                                        {"type": "text", "text": prompt_legenda},
+                                                        {
+                                                            "type": "image_url",
+                                                            "image_url": {
+                                                                "url": f"data:image/jpeg;base64,{encoded_image}"
                                                             }
-                                                        ]
-                                                    }
-                                                ],
-                                                max_tokens=500
-                                            )
-                                            legenda_gerada = response.choices[0].message.content
-                                            
-                                        except Exception as vision_error:
-                                            # Fallback para apenas texto
-                                            legenda_gerada = gerar_conteudo_modelo(
-                                                f"Gere uma legenda {estilo_legenda.lower()} para uma imagem: {prompt_legenda}",
-                                                "OpenAI",
-                                                contexto_agente
-                                            )
+                                                        }
+                                                    ]
+                                                }
+                                            ],
+                                            max_tokens=500
+                                        )
+                                        legenda_gerada = response.choices[0].message.content
                                         
-                                    else:
-                                        # Para Claude ou fallback
+                                    except Exception as vision_error:
                                         legenda_gerada = gerar_conteudo_modelo(
                                             f"Gere uma legenda {estilo_legenda.lower()} para uma imagem: {prompt_legenda}",
-                                            modelo_legenda,
+                                            "OpenAI",
                                             contexto_agente
                                         )
                                     
-                                    # Mostrar resultado
-                                    st.success("✅ Legenda gerada com sucesso!")
-                                    st.subheader("Legenda Gerada:")
-                                    st.write(legenda_gerada)
-                                    
-                                    # Salvar no session state para ajustes posteriores
-                                    st.session_state.conteudo_gerado = legenda_gerada
-                                    st.session_state.tipo_conteudo_gerado = "legenda_imagem"
-                                    st.session_state.modelo_utilizado_geracao = modelo_legenda
-                                    
-                                    # Botão para copiar legenda
-                                    st.download_button(
-                                        "📋 Baixar Legenda",
-                                        data=legenda_gerada,
-                                        file_name=f"legenda_{imagem_upload.name.split('.')[0]}.txt",
-                                        mime="text/plain",
-                                        key="download_legenda_imagem"
+                                else:
+                                    legenda_gerada = gerar_conteudo_modelo(
+                                        f"Gere uma legenda {estilo_legenda.lower()} para uma imagem: {prompt_legenda}",
+                                        modelo_legenda,
+                                        contexto_agente
                                     )
+                                
+                                st.write("✅ Legenda gerada com sucesso!")
+                                st.subheader("Legenda Gerada:")
+                                st.write(legenda_gerada)
+                                
+                                st.session_state.conteudo_gerado = legenda_gerada
+                                st.session_state.tipo_conteudo_gerado = "legenda_imagem"
+                                st.session_state.modelo_utilizado_geracao = modelo_legenda
+                                
+                                st.download_button(
+                                    "📋 Baixar Legenda",
+                                    data=legenda_gerada,
+                                    file_name=f"legenda_{imagem_upload.name.split('.')[0]}.txt",
+                                    mime="text/plain",
+                                    key="download_legenda_imagem"
+                                )
+                                
+                                if mongo_connected_conteudo:
+                                    try:
+                                        historico_legenda = {
+                                            "tipo": "legenda_imagem",
+                                            "nome_imagem": imagem_upload.name,
+                                            "estilo_legenda": estilo_legenda,
+                                            "comprimento_legenda": comprimento_legenda,
+                                            "modelo_utilizado": modelo_legenda,
+                                            "legenda_gerada": legenda_gerada,
+                                            "agente_utilizado": st.session_state.agente_selecionado.get('nome') if st.session_state.agente_selecionado else "Nenhum",
+                                            "data_criacao": datetime.datetime.now()
+                                        }
+                                        db_briefings['historico_legendas'].insert_one(historico_legenda)
+                                    except Exception as e:
+                                        pass
                                     
-                                    # Salvar no histórico se MongoDB disponível
-                                    if mongo_connected_conteudo:
-                                        try:
-                                            historico_legenda = {
-                                                "tipo": "legenda_imagem",
-                                                "nome_imagem": imagem_upload.name,
-                                                "estilo_legenda": estilo_legenda,
-                                                "comprimento_legenda": comprimento_legenda,
-                                                "modelo_utilizado": modelo_legenda,
-                                                "legenda_gerada": legenda_gerada,
-                                                "agente_utilizado": st.session_state.agente_selecionado.get('nome') if st.session_state.agente_selecionado else "Nenhum",
-                                                "data_criacao": datetime.datetime.now()
-                                            }
-                                            db_briefings['historico_legendas'].insert_one(historico_legenda)
-                                            st.success("✅ Legenda salva no histórico!")
-                                        except Exception as e:
-                                            st.warning(f"Legenda gerada, mas não salva no histórico: {str(e)}")
-                                    
-                                except Exception as e:
-                                    st.error(f"❌ Erro ao gerar legenda: {str(e)}")
-                                    st.info("💡 Dica: Verifique se a imagem não está corrompida e tente novamente.")
+                            except Exception as e:
+                                st.write(f"❌ Erro ao gerar legenda: {str(e)}")
             
-            # Opção 3: Inserir briefing manualmente
+            # Inserir briefing manualmente
             st.write("✍️ Briefing Manual:")
             briefing_manual = st.text_area("Ou cole o briefing completo aqui:", height=150,
                                           placeholder="""Exemplo:
@@ -5413,59 +5331,45 @@ Pontos-chave: [lista os principais pontos]""",
                 "Áudios/Vídeos para transcrição:",
                 type=['mp3', 'wav', 'mp4', 'mov', 'avi'],
                 accept_multiple_files=True,
-                help="Arquivos de mídia serão transcritos automaticamente",
                 key="arquivos_midia"
             )
             
             transcricoes_texto = ""
             if arquivos_midia:
-                st.info(f"🎬 {len(arquivos_midia)} arquivo(s) de mídia carregado(s)")
                 if st.button("🔄 Transcrever Todos os Arquivos de Mídia", key="transcrever_btn"):
-                    with st.spinner("Transcrevendo arquivos de mídia..."):
-                        for arquivo in arquivos_midia:
-                            tipo = "audio" if arquivo.type.startswith('audio') else "video"
-                            transcricao = transcrever_audio_video(arquivo, tipo)
-                            transcricoes_texto += f"\n\n--- TRANSCRIÇÃO DE {arquivo.name.upper()} ---\n{transcricao}"
-                            st.success(f"✅ {arquivo.name} transcrito!")
+                    for arquivo in arquivos_midia:
+                        tipo = "audio" if arquivo.type.startswith('audio') else "video"
+                        transcricao = transcrever_audio_video(arquivo, tipo)
+                        transcricoes_texto += f"\n\n--- TRANSCRIÇÃO DE {arquivo.name.upper()} ---\n{transcricao}"
         
         with col2:
             st.subheader("⚙️ Configurações de Geração")
             
-            # Seletor de modelo principal
-            st.sidebar.subheader("🤖 Modelo para Geração")
-            modelo_principal = st.sidebar.selectbox(
+            modelo_principal = st.selectbox(
                 "Escolha o modelo principal:",
                 ["Gemini", "Claude", "OpenAI"],
                 key="modelo_principal_select",
-                index=0  # Gemini como padrão
+                index=0
             )
             
-            # Status dos modelos
-            st.info(f"**Modelo Selecionado:** {modelo_principal}")
-            
             if modelo_principal == "Gemini" and not gemini_api_key:
-                st.error("❌ Gemini não disponível")
+                st.write("❌ Gemini não disponível")
             elif modelo_principal == "Claude" and not anthropic_api_key:
-                st.error("❌ Claude não disponível")
+                st.write("❌ Claude não disponível")
             elif modelo_principal == "OpenAI" and not openai_api_key:
-                st.error("❌ OpenAI não disponível")
-            else:
-                st.success(f"✅ {modelo_principal} configurado")
+                st.write("❌ OpenAI não disponível")
             
-            # Indicador de agente selecionado
             if st.session_state.agente_selecionado:
-                st.info(f"🤖 Agente: {st.session_state.agente_selecionado.get('nome', 'N/A')}")
+                st.write(f"🤖 Agente: {st.session_state.agente_selecionado.get('nome', 'N/A')}")
             else:
-                st.warning("⚠️ Nenhum agente selecionado")
+                st.write("⚠️ Nenhum agente selecionado")
             
-            # Opção para análise de URLs específicas
             st.markdown("---")
             st.subheader("🌐 Análise de URLs Específicas")
             
             usar_analise_urls = st.checkbox(
                 "Analisar URLs específicas",
                 value=False,
-                help="Analise o conteúdo de URLs específicas em vez de busca geral",
                 key="usar_analise_urls"
             )
             
@@ -5474,33 +5378,26 @@ Pontos-chave: [lista os principais pontos]""",
                     "URLs para análise (uma por linha):",
                     height=120,
                     placeholder="https://exemplo.com/artigo1\nhttps://exemplo.com/artigo2\nhttps://exemplo.com/dados",
-                    help="Insira URLs específicas que deseja analisar. O sistema extrairá e analisará o conteúdo dessas páginas.",
                     key="urls_analise"
                 )
             
-            # Opção para o usuário escolher entre configurações padrão ou prompt personalizado
             modo_geracao = st.radio(
                 "Modo de Geração:",
                 ["Configurações Padrão", "Prompt Personalizado"],
-                help="Escolha entre usar configurações pré-definidas ou escrever seu próprio prompt",
                 key="modo_geracao"
             )
             
             if modo_geracao == "Configurações Padrão":
-                # Configurações básicas (versão simplificada)
                 tipo_conteudo = st.selectbox("Tipo de Conteúdo:", 
                                            ["Post Social", "Artigo Blog", "Email Marketing", 
                                             "Landing Page", "Script Vídeo", "Relatório Técnico",
                                             "Press Release", "Newsletter", "Case Study"],
                                            key="tipo_conteudo")
                 
-                # TOM DE VOZ COMO TEXT BOX (não select box)
                 tom_voz = st.text_area(
                     "Tom de Voz:",
                     placeholder="Ex: Formal e profissional, mas acessível\nOu: Casual e descontraído\nOu: Persuasivo e motivacional",
-                  
-                    key="tom_voz_textarea",
-                    help="Descreva o tom de voz desejado para o conteúdo"
+                    key="tom_voz_textarea"
                 )
                 
                 palavras_chave = st.text_input("Palavras-chave (opcional):",
@@ -5509,27 +5406,19 @@ Pontos-chave: [lista os principais pontos]""",
                 
                 numero_palavras = st.slider("Número de Palavras:", 100, 3000, 800, key="numero_palavras")
                 
-                # Configurações avançadas simplificadas
-                with st.expander("🔧 Configurações Avançadas"):
-                    usar_contexto_agente = st.checkbox("Usar contexto do agente selecionado", 
-                                                     value=bool(st.session_state.agente_selecionado),
-                                                     key="usar_contexto")
-                    
-                    incluir_cta = st.checkbox("Incluir Call-to-Action", value=True, key="incluir_cta")
-                    
-                    incluir_fontes_destaque = st.checkbox(
-                        "Destacar fontes no conteúdo",
-                        value=True,
-                        help="Incluir e destacar as fontes citadas no conteúdo gerado",
-                        key="incluir_fontes_destaque"
-                    )
-                    
-                    formato_saida = st.selectbox("Formato de Saída:", 
-                                               ["Texto Simples", "Markdown", "HTML Básico"],
-                                               key="formato_saida")
+                usar_contexto_agente = st.checkbox("Usar contexto do agente selecionado", 
+                                                 value=bool(st.session_state.agente_selecionado),
+                                                 key="usar_contexto")
+                
+                incluir_cta = st.checkbox("Incluir Call-to-Action", value=True, key="incluir_cta")
+                
+                incluir_fontes_destaque = st.checkbox(
+                    "Destacar fontes no conteúdo",
+                    value=True,
+                    key="incluir_fontes_destaque"
+                )
             
-            else:  # Prompt Personalizado
-                st.info("💡 Escreva seu próprio prompt de geração. Use {contexto} para incluir automaticamente todas as fontes de conteúdo.")
+            else:
                 prompt_personalizado = st.text_area(
                     "Seu Prompt Personalizado:",
                     height=200,
@@ -5548,16 +5437,13 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                     key="prompt_personalizado"
                 )
                 
-                # Variáveis que o usuário pode usar no prompt personalizado
                 col_var1, col_var2, col_var3 = st.columns(3)
                 with col_var1:
-                    # TOM DE VOZ COMO TEXT BOX (não select box)
                     tom_personalizado = st.text_area(
                         "Tom:",
                         value="formal e profissional",
                         height=60,
-                        key="tom_personalizado_textarea",
-                        help="Descreva o tom de voz desejado"
+                        key="tom_personalizado_textarea"
                     )
                 with col_var2:
                     formato_personalizado = st.selectbox("Formato:", 
@@ -5573,11 +5459,9 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                 incluir_fontes_personalizado = st.checkbox(
                     "Solicitar fontes no prompt",
                     value=True,
-                    help="Garantir que o prompt exija fontes nas respostas",
                     key="incluir_fontes_personalizado"
                 )
 
-        # Área de instruções específicas (apenas para modo padrão)
         if modo_geracao == "Configurações Padrão":
             st.subheader("🎯 Instruções Específicas")
             instrucoes_especificas = st.text_area(
@@ -5593,9 +5477,7 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                 key="instrucoes_especificas"
             )
 
-        # Botão para gerar conteúdo
         if st.button("🚀 Gerar Conteúdo com Todos os Insumos", type="primary", use_container_width=True, key="gerar_conteudo_btn"):
-            # Verificar se há pelo menos uma fonte de conteúdo
             tem_conteudo = (arquivos_upload or 
                            briefing_manual or 
                            arquivos_midia or
@@ -5604,362 +5486,178 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                            (usar_analise_urls and urls_para_analise))
             
             if not tem_conteudo:
-                st.error("❌ Por favor, forneça pelo menos uma fonte de conteúdo (arquivos, briefing, mídia ou busca web)")
+                st.write("❌ Por favor, forneça pelo menos uma fonte de conteúdo (arquivos, briefing, mídia ou busca web)")
             elif modo_geracao == "Prompt Personalizado" and not prompt_personalizado:
-                st.error("❌ Por favor, escreva um prompt personalizado para geração")
+                st.write("❌ Por favor, escreva um prompt personalizado para geração")
             else:
-                with st.spinner("Processando todos os insumos e gerando conteúdo..."):
-                    try:
-                        # Construir o contexto combinado de todas as fontes
-                        contexto_completo = "## FONTES DE CONTEÚDO COMBINADAS:\n\n"
-                        
-                        # Adicionar conteúdo dos arquivos uploadados
-                        if textos_arquivos and textos_arquivos.strip():
-                            contexto_completo += "### CONTEÚDO DOS ARQUIVOS:\n" + textos_arquivos + "\n\n"
-                        
-                        # Adicionar briefing manual
-                        if briefing_manual and briefing_manual.strip():
-                            contexto_completo += "### BRIEFING MANUAL:\n" + briefing_manual + "\n\n"
-                        
-                        # Adicionar transcrições
-                        if transcricoes_texto and transcricoes_texto.strip():
-                            contexto_completo += "### TRANSCRIÇÕES DE MÍDIA:\n" + transcricoes_texto + "\n\n"
-                        
-                        # REALIZAR BUSCA WEB SE SOLICITADO (COM FONTES OBRIGATÓRIAS)
-                        busca_web_resultado = ""
-                        if usar_busca_web and termos_busca and termos_busca.strip() and perp_api_key:
-                            with st.spinner("🔍 Realizando busca web (obtendo fontes ancoradas)..."):
-                                # Preparar contexto do agente para busca
-                                contexto_agente_busca = ""
-                                if st.session_state.agente_selecionado:
-                                    agente = st.session_state.agente_selecionado
-                                    contexto_agente_busca = construir_contexto(agente, st.session_state.segmentos_selecionados)
-                                
-                                # Usar a função corrigida que EXIGE fontes ancoradas
-                                busca_web_resultado = realizar_busca_web_com_fontes(termos_busca, contexto_agente_busca)
-                                
-                                if "❌" not in busca_web_resultado:
-                                    contexto_completo += f"### RESULTADOS DA BUSCA WEB ({termos_busca}):\n{busca_web_resultado}\n\n"
-                                    
-                                    # Verificar se há fontes no resultado
-                                    if any(keyword in busca_web_resultado.lower() for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com']):
-                                        st.success("✅ Busca web realizada com sucesso! Fontes incluídas.")
-                                    else:
-                                        st.warning("⚠️ Busca web realizada, mas fontes não foram explicitamente incluídas.")
-                        
-                        # Analisar URLs específicas se solicitado
-                        elif usar_analise_urls and urls_para_analise and urls_para_analise.strip() and perp_api_key:
-                            with st.spinner("🔍 Analisando URLs específicas..."):
-                                # Preparar contexto do agente para análise
-                                contexto_agente_analise = ""
-                                if st.session_state.agente_selecionado:
-                                    agente = st.session_state.agente_selecionado
-                                    contexto_agente_analise = construir_contexto(agente, st.session_state.segmentos_selecionados)
-                                
-                                # Dividir URLs por linha
-                                urls_list = [url.strip() for url in urls_para_analise.split('\n') if url.strip()]
-                                
-                                if urls_list:
-                                    # Pergunta para orientar a análise
-                                    pergunta_analise = st.session_state.get('termos_busca_conteudo', termos_busca) if 'termos_busca_conteudo' in st.session_state else "Analise o conteúdo destas URLs"
-                                    
-                                    analise_urls_resultado = analisar_urls_com_fontes(urls_list, pergunta_analise, contexto_agente_analise)
-                                    
-                                    if "❌" not in analise_urls_resultado:
-                                        contexto_completo += f"### ANÁLISE DAS URLs:\n{analise_urls_resultado}\n\n"
-                                        st.success(f"✅ {len(urls_list)} URL(s) analisada(s) com sucesso!")
-                        
-                        # Adicionar contexto do agente se selecionado
-                        contexto_agente = ""
-                        if usar_contexto_agente and st.session_state.agente_selecionado:
+                try:
+                    contexto_completo = "## FONTES DE CONTEÚDO COMBINADAS:\n\n"
+                    
+                    if textos_arquivos and textos_arquivos.strip():
+                        contexto_completo += "### CONTEÚDO DOS ARQUIVOS:\n" + textos_arquivos + "\n\n"
+                    
+                    if briefing_manual and briefing_manual.strip():
+                        contexto_completo += "### BRIEFING MANUAL:\n" + briefing_manual + "\n\n"
+                    
+                    if transcricoes_texto and transcricoes_texto.strip():
+                        contexto_completo += "### TRANSCRIÇÕES DE MÍDIA:\n" + transcricoes_texto + "\n\n"
+                    
+                    busca_web_resultado = ""
+                    if usar_busca_web and termos_busca and termos_busca.strip() and perp_api_key:
+                        contexto_agente_busca = ""
+                        if st.session_state.agente_selecionado:
                             agente = st.session_state.agente_selecionado
-                            contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                            contexto_agente_busca = construir_contexto(agente, st.session_state.segmentos_selecionados)
                         
-                        # Construir prompt final baseado no modo selecionado
-                        if modo_geracao == "Configurações Padrão":
-                            # Adicionar instrução específica sobre fontes
-                            instrucoes_fontes = ""
-                            if usar_busca_web and termos_busca:
-                                instrucoes_fontes = "\n7. **SEMPRE CITAR FONTES:** Para todas as informações da busca web, inclua o nome do site e o link específico"
+                        busca_web_resultado = realizar_busca_web_com_fontes(termos_busca, contexto_agente_busca)
+                        
+                        if "❌" not in busca_web_resultado:
+                            contexto_completo += f"### RESULTADOS DA BUSCA WEB ({termos_busca}):\n{busca_web_resultado}\n\n"
+                    
+                    elif usar_analise_urls and urls_para_analise and urls_para_analise.strip() and perp_api_key:
+                        contexto_agente_analise = ""
+                        if st.session_state.agente_selecionado:
+                            agente = st.session_state.agente_selecionado
+                            contexto_agente_analise = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                        
+                        urls_list = [url.strip() for url in urls_para_analise.split('\n') if url.strip()]
+                        
+                        if urls_list:
+                            pergunta_analise = st.session_state.get('termos_busca_conteudo', termos_busca) if 'termos_busca_conteudo' in st.session_state else "Analise o conteúdo destas URLs"
                             
-                            # Verificar se deve destacar fontes
-                            destaque_fontes = ""
-                            if incluir_fontes_destaque:
-                                destaque_fontes = """
-                                8. **DESTACAR FONTES:** Use formatação para destacar as fontes (ex: **Fonte:** [Nome do Site](link))
-                                9. **CREDIBILIDADE:** A credibilidade do conteúdo depende das fontes citadas
-                                """
+                            analise_urls_resultado = analisar_urls_com_fontes(urls_list, pergunta_analise, contexto_agente_analise)
                             
-                            prompt_final = f"""
-                            {contexto_agente}
-                            
-                            ## INSTRUÇÕES PARA GERAÇÃO DE CONTEÚDO:
-                            
-                            **TIPO DE CONTEÚDO:** {tipo_conteudo}
-                            **TOM DE VOZ:** {tom_voz if tom_voz.strip() else 'Não especificado'}
-                            **PALAVRAS-CHAVE:** {palavras_chave if palavras_chave else 'Não especificadas'}
-                            **NÚMERO DE PALAVRAS:** {numero_palavras} (±10%)
-                            **INCLUIR CALL-TO-ACTION:** {incluir_cta}
-                            
-                            **INSTRUÇÕES ESPECÍFICAS:**
-                            {instrucoes_especificas if instrucoes_especificas else 'Nenhuma instrução específica fornecida.'}
-                            {instrucoes_fontes}
-                            {destaque_fontes}
-                            
-                            ## FONTES E REFERÊNCIAS:
-                            {contexto_completo}
-                            
-                            ## TAREFA:
-                            Com base em TODAS as fontes fornecidas acima, gere um conteúdo do tipo {tipo_conteudo} que:
-                            
-                            1. **Síntese Eficiente:** Combine e sintetize informações de todas as fontes
-                            2. **Coerência:** Mantenha consistência com as informações originais
-                            3. **Valor Agregado:** Vá além da simples cópia, agregando insights
-                            4. **Engajamento:** Crie conteúdo que engaje o público-alvo
-                            5. **Clareza:** Comunique ideias complexas de forma acessível
-                            6. **TRANSPARÊNCIA:** **SEMPRE cite as fontes específicas** para dados, estatísticas e informações importantes
-                            
-                            **IMPORTANTE SOBRE FONTES:**
-                            - Para cada dado ou informação da busca web, cite a fonte específica
-                            - Use formato: **Fonte:** [Nome do Site ou Autor] ([link completo])
-                            - Se múltiplas fontes confirmam algo, cite as principais
-                            - A credibilidade do conteúdo depende das fontes citadas
-                            
-                            **FORMATO DE SAÍDA:** {formato_saida}
-                            
-                            Gere um conteúdo completo, profissional e com fontes verificáveis.
-                            """
-                        else:  # Prompt Personalizado
-                            # Substituir variáveis no prompt personalizado
-                            prompt_processado = prompt_personalizado.replace("{contexto}", contexto_completo)
-                            prompt_processado = prompt_processado.replace("{tom}", tom_personalizado if tom_personalizado.strip() else "adequado")
-                            prompt_processado = prompt_processado.replace("{formato}", formato_personalizado)
-                            prompt_processado = prompt_processado.replace("{palavras}", str(palavras_personalizado))
-                            
-                            # Adicionar instrução sobre fontes se marcado
-                            if incluir_fontes_personalizado:
-                                prompt_processado += "\n\n**IMPORTANTE:** SEMPRE cite as fontes das informações, incluindo nome do site e link específico no formato **Fonte: [Nome do Site] ([link])**."
-                            
-                            prompt_final = f"""
-                            {contexto_agente}
-                            
-                            {prompt_processado}
+                            if "❌" not in analise_urls_resultado:
+                                contexto_completo += f"### ANÁLISE DAS URLs:\n{analise_urls_resultado}\n\n"
+                    
+                    contexto_agente = ""
+                    if usar_contexto_agente and st.session_state.agente_selecionado:
+                        agente = st.session_state.agente_selecionado
+                        contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
+                    
+                    if modo_geracao == "Configurações Padrão":
+                        instrucoes_fontes = ""
+                        if usar_busca_web and termos_busca:
+                            instrucoes_fontes = "\n7. **SEMPRE CITAR FONTES:** Para todas as informações da busca web, inclua o nome do site e o link específico"
+                        
+                        destaque_fontes = ""
+                        if incluir_fontes_destaque:
+                            destaque_fontes = """
+                            8. **DESTACAR FONTES:** Use formatação para destacar as fontes (ex: **Fonte:** [Nome do Site](link))
+                            9. **CREDIBILIDADE:** A credibilidade do conteúdo depende das fontes citadas
                             """
                         
-                        # Gerar conteúdo usando o modelo selecionado
-                        conteudo_gerado = gerar_conteudo_modelo(prompt_final, modelo_principal, contexto_agente)
+                        prompt_final = f"""
+                        {contexto_agente}
                         
-                        # Determinar formato de saída baseado no modo
-                        if modo_geracao == "Configurações Padrão":
-                            formato_output = formato_saida
-                        else:
-                            formato_output = formato_personalizado
+                        ## INSTRUÇÕES PARA GERAÇÃO DE CONTEÚDO:
                         
-                        # Processar saída baseada no formato selecionado
-                        if formato_output == "HTML Básico" or formato_output == "HTML básico":
-                            # Converter markdown para HTML básico (mantendo links de fontes)
-                            import re
-                            conteudo_html = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', conteudo_gerado)
-                            conteudo_html = re.sub(r'\*(.*?)\*', r'<em>\1</em>', conteudo_html)
-                            conteudo_html = re.sub(r'### (.*?)\n', r'<h3>\1</h3>', conteudo_html)
-                            conteudo_html = re.sub(r'## (.*?)\n', r'<h2>\1</h2>', conteudo_html)
-                            conteudo_html = re.sub(r'# (.*?)\n', r'<h1>\1</h1>', conteudo_html)
-                            # Converter links markdown para HTML (preservar fontes)
-                            conteudo_html = re.sub(r'\*\*Fonte:\s*\[(.*?)\]\((.*?)\)\*\*', r'<strong>Fonte: <a href="\2" target="_blank">\1</a></strong>', conteudo_html)
-                            conteudo_html = conteudo_html.replace('\n', '<br>')
+                        **TIPO DE CONTEÚDO:** {tipo_conteudo}
+                        **TOM DE VOZ:** {tom_voz if tom_voz.strip() else 'Não especificado'}
+                        **PALAVRAS-CHAVE:** {palavras_chave if palavras_chave else 'Não especificadas'}
+                        **NÚMERO DE PALAVRAS:** {numero_palavras} (±10%)
+                        **INCLUIR CALL-TO-ACTION:** {incluir_cta}
                         
-                        # Armazenar no session state para uso posterior
-                        st.session_state.conteudo_gerado = conteudo_gerado
-                        st.session_state.tipo_conteudo_gerado = tipo_conteudo if modo_geracao == "Configurações Padrão" else "personalizado"
-                        st.session_state.modelo_utilizado_geracao = modelo_principal
-                        st.session_state.formato_output = formato_output
-                        st.session_state.contexto_usado = contexto_completo  # Salvar o contexto usado
+                        **INSTRUÇÕES ESPECÍFICAS:**
+                        {instrucoes_especificas if instrucoes_especificas else 'Nenhuma instrução específica fornecida.'}
+                        {instrucoes_fontes}
+                        {destaque_fontes}
                         
-                        # Determinar extensão do arquivo
-                        extensao = ".html" if "HTML" in formato_output else ".md" if "markdown" in formato_output.lower() else ".txt"
+                        ## FONTES E REFERÊNCIAS:
+                        {contexto_completo}
                         
-                        # Mostrar conteúdo gerado
-                        st.subheader("📄 Conteúdo Gerado (com Fontes Ancoradas)")
+                        ## TAREFA:
+                        Com base em TODAS as fontes fornecidas acima, gere um conteúdo do tipo {tipo_conteudo} que:
                         
-                        if formato_output == "HTML Básico" or formato_output == "HTML básico":
-                            st.components.v1.html(conteudo_html, height=400, scrolling=True)
-                            conteudo_download = conteudo_html
-                        else:
-                            st.markdown(conteudo_gerado)
-                            conteudo_download = conteudo_gerado
+                        1. **Síntese Eficiente:** Combine e sintetize informações de todas as fontes
+                        2. **Coerência:** Mantenha consistência com as informações originais
+                        3. **Valor Agregado:** Vá além da simples cópia, agregando insights
+                        4. **Engajamento:** Crie conteúdo que engaje o público-alvo
+                        5. **Clareza:** Comunique ideias complexas de forma acessível
+                        6. **TRANSPARÊNCIA:** **SEMPRE cite as fontes específicas** para dados, estatísticas e informações importantes
                         
-                        # Verificar se há fontes no conteúdo gerado
-                        conteudo_lower = conteudo_gerado.lower()
-                        tem_fontes = any(keyword in conteudo_lower for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br', '.gov'])
+                        **IMPORTANTE SOBRE FONTES:**
+                        - Para cada dado ou informação da busca web, cite a fonte específica
+                        - Use formato: **Fonte:** [Nome do Site ou Autor] ([link completo])
+                        - Se múltiplas fontes confirmam algo, cite as principais
+                        - A credibilidade do conteúdo depende das fontes citadas
                         
-                        # Estatísticas
-                        palavras_count = len(conteudo_gerado.split())
-                        col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
-                        with col_stat1:
-                            st.metric("Palavras Geradas", palavras_count)
-                        with col_stat2:
-                            st.metric("Arquivos Processados", len(arquivos_upload) if arquivos_upload else 0)
-                        with col_stat3:
-                            st.metric("Modelo Utilizado", modelo_principal)
-                        with col_stat4:
-                            fonte_status = "✅" if tem_fontes else "⚠️"
-                            st.metric("Fontes Incluídas", fonte_status)
-                        
-                        # Mostrar aviso se não houver fontes
-                        if not tem_fontes and (usar_busca_web or usar_analise_urls):
-                            st.warning("""
-                            ⚠️ **ATENÇÃO:** O conteúdo gerado não parece conter fontes explícitas.
-                            
-                            **Sugestões:**
-                            1. Verifique se a busca web retornou informações com fontes
-                            2. Tente reformular os termos de busca para serem mais específicos
-                            3. Use o modo "Configurações Padrão" com "Destacar fontes" ativado
-                            4. Solicite explicitamente fontes no prompt personalizado
-                            5. Inclua palavras como "fontes", "referências", "citações" no prompt
-                            """)
-                        
-                        # Botões de download
-                        col_dl1, col_dl2 = st.columns(2)
-                        
-                        with col_dl1:
-                            st.download_button(
-                                f"💾 Baixar Conteúdo",
-                                data=conteudo_download,
-                                file_name=f"conteudo_{modelo_principal}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}{extensao}",
-                                mime="text/html" if "HTML" in formato_output else "text/plain",
-                                key="download_conteudo_principal"
-                            )
-                        
-                        with col_dl2:
-                            # Salvar no histórico se MongoDB disponível
-                            if mongo_connected_conteudo:
-                                try:
-                                    historico_data = {
-                                        "modo_geracao": modo_geracao,
-                                        "modelo_utilizado": modelo_principal,
-                                        "tipo_conteudo": tipo_conteudo if modo_geracao == "Configurações Padrão" else "Personalizado",
-                                        "tom_voz": tom_voz if modo_geracao == "Configurações Padrão" else tom_personalizado,
-                                        "palavras_chave": palavras_chave if modo_geracao == "Configurações Padrão" else "Personalizado",
-                                        "numero_palavras": palavras_count,
-                                        "conteudo_gerado": conteudo_gerado,
-                                        "usou_busca_web": usar_busca_web and termos_busca,
-                                        "tem_fontes": tem_fontes,
-                                        "fontes_utilizadas": {
-                                            "arquivos_upload": [arquivo.name for arquivo in arquivos_upload] if arquivos_upload else [],
-                                            "briefing_manual": bool(briefing_manual and briefing_manual.strip()),
-                                            "transcricoes": len(arquivos_midia) if arquivos_midia else 0,
-                                            "busca_web": termos_busca if usar_busca_web and termos_busca else None,
-                                            "analise_urls": urls_para_analise.split('\n') if usar_analise_urls and urls_para_analise else []
-                                        },
-                                        "agente_utilizado": st.session_state.agente_selecionado.get('nome') if st.session_state.agente_selecionado else "Nenhum",
-                                        "data_criacao": datetime.datetime.now()
-                                    }
-                                    db_briefings['historico_geracao'].insert_one(historico_data)
-                                    st.success("✅ Conteúdo salvo no histórico!")
-                                except Exception as e:
-                                    st.warning(f"Conteúdo gerado, mas não salva no histórico: {str(e)}")
-                        
-                        # Informar sobre a aba de ajustes
-                        st.info("💡 **Agora você pode ir para a aba '✏️ Ajustes Incrementais' para refinar este conteúdo!**")
-                        
-                    except Exception as e:
-                        st.error(f"❌ Erro ao gerar conteúdo: {str(e)}")
-                        st.info("💡 Dica: Verifique se os arquivos não estão corrompidos e tente novamente.")
-
-        # Seção de histórico rápido
-        if mongo_connected_conteudo:
-            with st.expander("📚 Histórico de Gerações Recentes"):
-                try:
-                    historico = list(db_briefings['historico_geracao'].find().sort("data_criacao", -1).limit(5))
-                    if historico:
-                        for item in historico:
-                            with st.container():
-                                col_hist1, col_hist2 = st.columns([3, 1])
-                                with col_hist1:
-                                    st.write(f"**{item.get('tipo_conteudo', 'Conteúdo')}**")
-                                    st.caption(f"📅 {item['data_criacao'].strftime('%d/%m/%Y %H:%M')} | 🤖 {item.get('modelo_utilizado', 'N/A')}")
-                                    st.caption(f"📝 {item.get('numero_palavras', 0)} palavras")
-                                    if item.get('usou_busca_web'):
-                                        st.caption("🔍 Com busca web")
-                                    if item.get('tem_fontes', False):
-                                        st.caption("📚 Com fontes")
-                                
-                                with col_hist2:
-                                    if st.button("📋 Ver", key=f"ver_{item['_id']}"):
-                                        st.session_state.conteudo_selecionado = item
-                                        st.rerun()
-                                
-                                st.divider()
+                        Gere um conteúdo completo, profissional e com fontes verificáveis.
+                        """
                     else:
-                        st.info("Nenhuma geração no histórico")
+                        prompt_processado = prompt_personalizado.replace("{contexto}", contexto_completo)
+                        prompt_processado = prompt_processado.replace("{tom}", tom_personalizado if tom_personalizado.strip() else "adequado")
+                        prompt_processado = prompt_processado.replace("{formato}", formato_personalizado)
+                        prompt_processado = prompt_processado.replace("{palavras}", str(palavras_personalizado))
                         
-                    # Visualizar conteúdo selecionado
-                    if 'conteudo_selecionado' in st.session_state:
-                        st.subheader("Conteúdo Selecionado")
-                        st.markdown(st.session_state.conteudo_selecionado['conteudo_gerado'][:500] + "..." 
-                                  if len(st.session_state.conteudo_selecionado['conteudo_gerado']) > 500 
-                                  else st.session_state.conteudo_selecionado['conteudo_gerado'])
+                        if incluir_fontes_personalizado:
+                            prompt_processado += "\n\n**IMPORTANTE:** SEMPRE cite as fontes das informações, incluindo nome do site e link específico no formato **Fonte: [Nome do Site] ([link])**."
                         
-                        # Verificar fontes no conteúdo selecionado
-                        if st.session_state.conteudo_selecionado.get('tem_fontes', False):
-                            st.success("✅ Este conteúdo inclui fontes")
+                        prompt_final = f"""
+                        {contexto_agente}
                         
-                        if st.button("Fechar", key="fechar_conteudo"):
-                            del st.session_state.conteudo_selecionado
-                            st.rerun()
-                            
+                        {prompt_processado}
+                        """
+                    
+                    conteudo_gerado = gerar_conteudo_modelo(prompt_final, modelo_principal, contexto_agente)
+                    
+                    formato_output = "texto simples"
+                    
+                    st.session_state.conteudo_gerado = conteudo_gerado
+                    st.session_state.tipo_conteudo_gerado = tipo_conteudo if modo_geracao == "Configurações Padrão" else "personalizado"
+                    st.session_state.modelo_utilizado_geracao = modelo_principal
+                    st.session_state.formato_output = formato_output
+                    st.session_state.contexto_usado = contexto_completo
+                    
+                    st.subheader("📄 Conteúdo Gerado (com Fontes Ancoradas)")
+                    
+                    st.write(conteudo_gerado)
+                    
+                    conteudo_lower = conteudo_gerado.lower()
+                    tem_fontes = any(keyword in conteudo_lower for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br', '.gov'])
+                    
+                    palavras_count = len(conteudo_gerado.split())
+                    
+                    st.download_button(
+                        f"💾 Baixar Conteúdo",
+                        data=conteudo_gerado,
+                        file_name=f"conteudo_{modelo_principal}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                        mime="text/plain",
+                        key="download_conteudo_principal"
+                    )
+                    
+                    if not tem_fontes and (usar_busca_web or usar_analise_urls):
+                        st.write("""
+                        ⚠️ **ATENÇÃO:** O conteúdo gerado não parece conter fontes explícitas.
+                        
+                        **Sugestões:**
+                        1. Verifique se a busca web retornou informações com fontes
+                        2. Tente reformular os termos de busca para serem mais específicos
+                        3. Use o modo "Configurações Padrão" com "Destacar fontes" ativado
+                        4. Solicite explicitamente fontes no prompt personalizado
+                        5. Inclua palavras como "fontes", "referências", "citações" no prompt
+                        """)
+                        
                 except Exception as e:
-                    st.warning(f"Erro ao carregar histórico: {str(e)}")
-
-            # Histórico de legendas geradas
-            with st.expander("🖼️ Histórico de Legendas"):
-                try:
-                    historico_legendas = list(db_briefings['historico_legendas'].find().sort("data_criacao", -1).limit(5))
-                    if historico_legendas:
-                        for item in historico_legendas:
-                            with st.container():
-                                st.write(f"**{item['nome_imagem']}**")
-                                st.caption(f"📅 {item['data_criacao'].strftime('%d/%m/%Y %H:%M')} | 🎨 {item['estilo_legenda']} | 🤖 {item.get('modelo_utilizado', 'N/A')}")
-                                st.write(f"*{item['legenda_gerada'][:100]}...*" if len(item['legenda_gerada']) > 100 else item['legenda_gerada'])
-                                st.divider()
-                    else:
-                        st.info("Nenhuma legenda no histórico")
-                except Exception as e:
-                    st.warning(f"Erro ao carregar histórico de legendas: {str(e)}")
+                    st.write(f"❌ Erro ao gerar conteúdo: {str(e)}")
 
     with tab_ajuste:
         st.header("✏️ Ajustes Incrementais no Conteúdo")
         
         if 'conteudo_gerado' not in st.session_state or not st.session_state.conteudo_gerado:
-            st.warning("⚠️ Nenhum conteúdo gerado recentemente. Gere um conteúdo primeiro na aba 'Geração de Conteúdo'.")
-            st.info("💡 Vá para a aba '📝 Geração de Conteúdo' e gere um conteúdo para poder ajustá-lo aqui.")
+            st.write("⚠️ Nenhum conteúdo gerado recentemente. Gere um conteúdo primeiro na aba 'Geração de Conteúdo'.")
         else:
-            st.success(f"✅ Conteúdo disponível para ajustes ({st.session_state.tipo_conteudo_gerado})")
-            
-            # Exibir informações do conteúdo
             col_info1, col_info2, col_info3 = st.columns(3)
             with col_info1:
-                st.metric("Modelo Original", st.session_state.modelo_utilizado_geracao)
+                st.write(f"Modelo Original: {st.session_state.modelo_utilizado_geracao}")
             with col_info2:
-                st.metric("Tipo", st.session_state.tipo_conteudo_gerado)
+                st.write(f"Tipo: {st.session_state.tipo_conteudo_gerado}")
             with col_info3:
-                st.metric("Formato", st.session_state.formato_output)
+                st.write(f"Formato: {st.session_state.formato_output}")
             
-            # Verificar se o conteúdo tem fontes
             conteudo_lower = st.session_state.conteudo_gerado.lower()
             tem_fontes = any(keyword in conteudo_lower for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br'])
             
-            if tem_fontes:
-                st.success("✅ Este conteúdo contém fontes citadas")
-            else:
-                st.warning("⚠️ Este conteúdo não parece conter fontes explícitas")
-            
-            # Área para visualização do conteúdo atual
-            st.subheader("📄 Conteúdo Atual")
-            with st.expander("Ver conteúdo completo", expanded=True):
-                st.markdown(st.session_state.conteudo_gerado)
-            
-            # Área para instruções de ajuste
             st.subheader("🎯 Instruções de Ajuste")
             
             instrucoes_ajuste = st.text_area(
@@ -5973,174 +5671,76 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
 - Adicione uma chamada para ação mais urgente
 - Reforce os benefícios principais no segundo tópico
 - **IMPORTANTE:** Mantenha todas as fontes citadas""",
-                help="Descreva especificamente o que deseja modificar no conteúdo existente. Lembre-se de mencionar se quer manter/atualizar as fontes.",
                 key="instrucoes_ajuste"
             )
             
-            # Configurações do ajuste
             col_ajuste1, col_ajuste2 = st.columns(2)
             
             with col_ajuste1:
                 modelo_ajuste = st.selectbox(
                     "Modelo para ajuste:",
                     ["Gemini", "Claude", "OpenAI"],
-                    key="modelo_ajuste_select",
-                    help="Escolha o modelo para realizar os ajustes"
+                    key="modelo_ajuste_select"
                 )
             
             with col_ajuste2:
                 usar_contexto_ajuste = st.checkbox(
                     "Usar contexto do agente selecionado",
                     value=bool(st.session_state.agente_selecionado),
-                    key="usar_contexto_ajuste",
-                    help="Usar as diretrizes do agente durante os ajustes"
+                    key="usar_contexto_ajuste"
                 )
                 
                 preservar_fontes = st.checkbox(
                     "Preservar fontes existentes",
                     value=True,
-                    key="preservar_fontes",
-                    help="Manter todas as citações de fontes no conteúdo ajustado"
+                    key="preservar_fontes"
                 )
             
-            # Botão para aplicar ajuste
             if st.button("🔄 Aplicar Ajustes", type="primary", key="aplicar_ajustes_btn"):
                 if not instrucoes_ajuste or not instrucoes_ajuste.strip():
-                    st.warning("⚠️ Por favor, descreva as alterações que deseja fazer.")
+                    st.write("⚠️ Por favor, descreva as alterações que deseja fazer.")
                 else:
-                    with st.spinner("Aplicando ajustes ao conteúdo..."):
-                        try:
-                            # Preparar contexto do agente se necessário
-                            contexto_agente = ""
-                            if usar_contexto_ajuste and st.session_state.agente_selecionado:
-                                agente = st.session_state.agente_selecionado
-                                contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
-                            
-                            # Adicionar instrução sobre preservar fontes
-                            if preservar_fontes:
-                                instrucoes_ajuste_completa = f"{instrucoes_ajuste}\n\nIMPORTANTE: Mantenha todas as fontes citadas no conteúdo original. Não remova ou altere as referências às fontes existentes."
-                            else:
-                                instrucoes_ajuste_completa = instrucoes_ajuste
-                            
-                            # Aplicar ajustes incrementais
-                            conteudo_ajustado = ajustar_conteudo_incremental(
-                                st.session_state.conteudo_gerado,
-                                instrucoes_ajuste_completa,
-                                modelo_ajuste,
-                                contexto_agente
-                            )
-                            
-                            if "❌" in conteudo_ajustado:
-                                st.error(conteudo_ajustado)
-                            else:
-                                st.success("✅ Ajustes aplicados com sucesso!")
-                                
-                                # Verificar se ainda há fontes após ajuste
-                                conteudo_ajustado_lower = conteudo_ajustado.lower()
-                                tem_fontes_apos = any(keyword in conteudo_ajustado_lower for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br'])
-                                
-                                if tem_fontes_apos:
-                                    st.success("✅ Fontes preservadas no conteúdo ajustado")
-                                elif preservar_fontes and tem_fontes:
-                                    st.warning("⚠️ As fontes podem ter sido alteradas durante o ajuste")
-                                
-                                # Atualizar o conteúdo no session state
-                                st.session_state.conteudo_gerado = conteudo_ajustado
-                                
-                                # Mostrar diferenças
-                                st.subheader("📋 Comparação: Antes vs Depois")
-                                
-                                col_antes, col_depois = st.columns(2)
-                                
-                                with col_antes:
-                                    st.markdown("#### 🕒 Antes")
-                                    # Mostrar apenas parte do conteúdo para comparação
-                                    palavras_antes = st.session_state.conteudo_gerado.split()  # conteúdo anterior
-                                    preview_antes = " ".join(palavras_antes[:100])
-                                    if len(palavras_antes) > 100:
-                                        preview_antes += "..."
-                                    st.markdown(preview_antes)
-                                
-                                with col_depois:
-                                    st.markdown("#### ✨ Depois")
-                                    # Mostrar apenas parte do conteúdo para comparação
-                                    palavras_depois = conteudo_ajustado.split()
-                                    preview_depois = " ".join(palavras_depois[:100])
-                                    if len(palavras_depois) > 100:
-                                        preview_depois += "..."
-                                    st.markdown(preview_depois)
-                                
-                                # Botão para visualizar completo
-                                with st.expander("Ver conteúdo completo ajustado", expanded=False):
-                                    st.markdown(conteudo_ajustado)
-                                
-                                # Estatísticas do ajuste
-                                st.subheader("📊 Estatísticas do Ajuste")
-                                col_stats1, col_stats2, col_stats3 = st.columns(3)
-                                
-                                with col_stats1:
-                                    palavras_originais = len(st.session_state.conteudo_gerado.split())
-                                    palavras_ajustadas = len(conteudo_ajustado.split())
-                                    diferenca = palavras_ajustadas - palavras_originais
-                                    st.metric("Palavras", palavras_ajustadas, delta=f"{diferenca:+}")
-                                
-                                with col_stats2:
-                                    st.metric("Modelo Ajuste", modelo_ajuste)
-                                
-                                with col_stats3:
-                                    fontes_status = "✅" if tem_fontes_apos else "⚠️"
-                                    st.metric("Fontes Preservadas", fontes_status)
-                                
-                                # Salvar versão ajustada no histórico
-                                if mongo_connected_conteudo:
-                                    try:
-                                        historico_ajuste = {
-                                            "tipo": "ajuste_incremental",
-                                            "conteudo_original_id": "atual",
-                                            "instrucoes_ajuste": instrucoes_ajuste,
-                                            "modelo_utilizado": modelo_ajuste,
-                                            "preservou_fontes": preservar_fontes,
-                                            "tem_fontes_apos": tem_fontes_apos,
-                                            "conteudo_ajustado": conteudo_ajustado,
-                                            "data_ajuste": datetime.datetime.now()
-                                        }
-                                        db_briefings['historico_ajustes'].insert_one(historico_ajuste)
-                                        st.success("✅ Ajuste salvo no histórico!")
-                                    except Exception as e:
-                                        st.warning(f"Ajuste aplicado, mas não salvo no histórico: {str(e)}")
+                    try:
+                        contexto_agente = ""
+                        if usar_contexto_ajuste and st.session_state.agente_selecionado:
+                            agente = st.session_state.agente_selecionado
+                            contexto_agente = construir_contexto(agente, st.session_state.segmentos_selecionados)
                         
-                        except Exception as e:
-                            st.error(f"❌ Erro ao aplicar ajustes: {str(e)}")
-            
-            # Área para download do conteúdo ajustado
-            st.markdown("---")
-            st.subheader("📥 Download do Conteúdo Ajustado")
-            
-            if 'conteudo_gerado' in st.session_state:
-                # Determinar extensão baseada no formato
-                formato = st.session_state.formato_output
-                extensao = ".html" if "HTML" in formato else ".md" if "markdown" in formato.lower() else ".txt"
-                
-                col_dl1, col_dl2, col_dl3 = st.columns(3)
-                
-                with col_dl1:
-                    st.download_button(
-                        "💾 Baixar Conteúdo Atual",
-                        data=st.session_state.conteudo_gerado,
-                        file_name=f"conteudo_ajustado_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}{extensao}",
-                        mime="text/plain",
-                        key="download_conteudo_ajustado"
-                    )
-                
-                with col_dl2:
-                    if st.button("🔄 Reiniciar do Original", key="reiniciar_conteudo"):
-                        st.info("Para reiniciar, gere um novo conteúdo na aba de geração.")
-                
-                with col_dl3:
-                    if st.button("📋 Copiar para Nova Geração", key="copiar_para_geracao"):
-                        st.session_state.texto_para_nova_geracao = st.session_state.conteudo_gerado
-                        st.success("✅ Conteúdo copiado! Vá para a aba de geração para usá-lo como base.")
-
+                        if preservar_fontes:
+                            instrucoes_ajuste_completa = f"{instrucoes_ajuste}\n\nIMPORTANTE: Mantenha todas as fontes citadas no conteúdo original. Não remova ou altere as referências às fontes existentes."
+                        else:
+                            instrucoes_ajuste_completa = instrucoes_ajuste
+                        
+                        conteudo_ajustado = ajustar_conteudo_incremental(
+                            st.session_state.conteudo_gerado,
+                            instrucoes_ajuste_completa,
+                            modelo_ajuste,
+                            contexto_agente
+                        )
+                        
+                        if "❌" in conteudo_ajustado:
+                            st.write(conteudo_ajustado)
+                        else:
+                            st.write("✅ Ajustes aplicados com sucesso!")
+                            
+                            conteudo_ajustado_lower = conteudo_ajustado.lower()
+                            tem_fontes_apos = any(keyword in conteudo_ajustado_lower for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br'])
+                            
+                            st.session_state.conteudo_gerado = conteudo_ajustado
+                            
+                            st.write("📋 Conteúdo Ajustado:")
+                            st.write(conteudo_ajustado)
+                            
+                            st.download_button(
+                                "💾 Baixar Conteúdo Atual",
+                                data=st.session_state.conteudo_gerado,
+                                file_name=f"conteudo_ajustado_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                                mime="text/plain",
+                                key="download_conteudo_ajustado"
+                            )
+                    
+                    except Exception as e:
+                        st.write(f"❌ Erro ao aplicar ajustes: {str(e)}")
 
 
 # --- FUNÇÕES DE REVISÃO ORTOGRÁFICA ---
