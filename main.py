@@ -3450,6 +3450,46 @@ with tab_mapping["✅ Validação Unificada"]:
             st.subheader("🎧 Análise de Legendas em Vídeo")
             st.write("Verifica se as legendas embutidas no vídeo batem com o áudio.")
             
+            # Campo para nomes próprios que devem ser reconhecidos corretamente
+            with st.expander("🔤 Configurações de Nomes Próprios", expanded=True):
+                st.markdown("""
+                **Adicione aqui nomes próprios que devem ser reconhecidos corretamente:**
+                
+                - **Nomes de empresas:** MRS Logística, Syngenta, etc.
+                - **Produtos:** Fortenza, Verdatis, Megafol, etc.
+                - **Nomes de pessoas:** João Silva, Maria Santos, etc.
+                - **Termos técnicos específicos:** PLINAZOLIN, ADEPIDYN, etc.
+                
+                **Formato:** um por linha, exatamente como deve aparecer nas legendas.
+                """)
+                
+                nomes_proprios_input = st.text_area(
+                    "Nomes próprios e termos específicos (um por linha):",
+                    height=150,
+                    placeholder="Exemplo:\nSyngenta\nMRS Logística\nFortenza\nVerdatis\nPLINAZOLIN\nJoão Silva\n...",
+                    help="Insira cada nome próprio ou termo específico em uma linha separada. Esses termos serão tratados como corretos mesmo se o modelo de reconhecimento não os identificar perfeitamente.",
+                    key="nomes_proprios_legendas"
+                )
+            
+            # Converter o input em lista
+            nomes_proprios = []
+            if nomes_proprios_input:
+                nomes_proprios = [nome.strip() for nome in nomes_proprios_input.split('\n') if nome.strip()]
+                st.success(f"✅ {len(nomes_proprios)} nome(s) próprio(s) configurado(s)")
+                
+                # Mostrar preview dos nomes
+                if len(nomes_proprios) > 0:
+                    col_nomes1, col_nomes2 = st.columns(2)
+                    with col_nomes1:
+                        st.markdown("**📋 Nomes configurados:**")
+                        for i, nome in enumerate(nomes_proprios[:10]):  # Mostrar até 10
+                            st.write(f"- {nome}")
+                    if len(nomes_proprios) > 10:
+                        with col_nomes2:
+                            st.markdown("**📋 Continuação:**")
+                            for i, nome in enumerate(nomes_proprios[10:20], 11):
+                                st.write(f"- {nome}")
+            
             # Botão para limpar análises anteriores
             if st.button("🗑️ Limpar Análises Anteriores", key="limpar_analises_legendas"):
                 st.session_state.resultados_analise_legendas = []
@@ -3492,87 +3532,125 @@ with tab_mapping["✅ Validação Unificada"]:
                     for idx, uploaded_video in enumerate(uploaded_videos_legendas):
                         with st.spinner(f'Analisando legendas no vídeo {idx+1} de {len(uploaded_videos_legendas)}: {uploaded_video.name}...'):
                             try:
-                                # Criar prompt específico para análise de legendas
+                                # Criar prompt específico para análise de legendas COM nomes próprios
+                                nomes_proprios_texto = ""
+                                if nomes_proprios:
+                                    nomes_proprios_texto = "### NOMES PRÓPRIOS CONFIGURADOS (CONSIDERAR CORRETOS):\n"
+                                    for nome in nomes_proprios:
+                                        nomes_proprios_texto += f"- {nome}\n"
+                                    nomes_proprios_texto += "\nIMPORTANTE: Esses nomes devem ser considerados corretos mesmo se aparecerem com pequenas variações.\n\n"
+                                
                                 prompt_legendas = f'''
                                 INSTRUÇÕES PARA ANÁLISE DE SINCRONIZAÇÃO LEGENDA-ÁUDIO
-
-Objetivo: Analisar o vídeo fornecido para verificar a precisão e o sincronismo entre as legendas embutidas (texto visível no vídeo) e o áudio. O foco principal é identificar discrepâncias.
-
-Parâmetros da Análise:
-
-    Linguagem do Áudio: {linguagem_audio}
-
-    Tolerância de Sincronização (Timing): {sensibilidade} segundos. Diferenças menores que este valor não são consideradas problemas.
-
-    Checagem de Estilo de Texto: A análise deve flagrar erros de capitalização, como letra maiúscula indevida após vírgula dentro de uma frase.
-
-Passos da Análise:
-
-    Detecção de Legendas: Utilize OCR para detectar e extrair todo o texto visível (legendas embutidas) no vídeo, registrando seus timestamps de entrada e saída.
-
-    Transcrição do Áudio: Transcreva com precisão o áudio do vídeo, gerando uma transcrição com timestamps por frase ou segmento significativo.
-
-    Comparação e Validação:
-    a. Sincronismo (Timing): Para cada bloco de legenda, verifique se o texto correspondente no áudio é falado dentro da janela de tempo definida pela legenda +/- a tolerância.
-    b. Precisão Textual: Compare o texto da legenda com a transcrição do áudio correspondente. Identifique:
-    * Omissões de palavras.
-    * Acréscimos de palavras não faladas.
-    * Substituições ou erros de palavras.
-    * Diferenças de pontuação que alterem o sentido.
-    * Erros de Capitalização: Ex: Letra maiúscula incorreta após uma vírgula no meio de uma frase (ex: "Vamos lá, Como está?").
-
-Formato do Relatório de Saída:
-
-CASO A: Sincronização Correta (Sem Problemas)
-Se, e somente se, não forem encontrados problemas de timing (dentro da tolerância) OU de texto (incluindo os erros de capitalização especificados), retorne APENAS a seguinte mensagem:
-
-    ✅ STATUS: SINCRONIZAÇÃO VERIFICADA.
-    As legendas embutidas no vídeo "{uploaded_video.name}" estão perfeitamente sincronizadas com o áudio e textualmente corretas dentro dos parâmetros definidos (Tolerância: {sensibilidade}s). Nenhuma ação é necessária.
-
-CASO B: Problemas Encontrados
-Se QUALQUER problema for detectado (de timing, texto ou capitalização), retorne um relatório completo no seguinte formato:
-🎬 Relatório de Análise: {uploaded_video.name}
-📋 Resumo Executivo
-
-    Status Geral: ❌ Sincronização com Problemas.
-
-    Total de Problemas Identificados: [X]
-
-        Problemas de Timing/Janela: [Y]
-
-        Problemas Textuais (Conteúdo): [Z]
-
-    Conclusão Rápida: [Uma ou duas linhas resumindo a qualidade geral, ex: "As legendas estão geralmente atrasadas e contêm vários erros de digitação."]
-
-❌ Problemas Detalhados (Com Timestamps)
-
-Liste cada problema encontrado, na ordem cronológica. Use o formato abaixo para cada item:
-
-    [MM:SS] - [TIPO DE PROBLEMA]
-
-        Legenda no Vídeo: "[Texto exato da legenda conforme exibido]"
-
-        Áudio Transcrito: "[Texto exato falado no áudio]"
-
-        Descrição: [Explicação clara do problema. Ex: "Legenda exibida 2.5s antes da fala.", "Substituição de palavra.", "Capitalização incorreta após vírgula."]
-
-
-
-[Forneça sugestões específicas e acionáveis com base nos problemas encontrados, por exemplo:]
-
-    Ajuste de Timing: Ajuste todas as legendas a partir de [MM:SS] com um delay de aproximadamente [X] segundos.
-
-    Revisão Textual: Corrija as palavras específicas citadas na seção de problemas.
-
-    Revisão de Estilo: Verifique as regras de capitalização, especialmente após vírgulas.
-
-Notas Finais para o Analista:
-
-    Seja meticuloso na comparação textual, incluindo a verificação do erro de maiúscula pós-vírgula.
-
-    Os timestamps nos problemas devem referenciar o momento aproximado no vídeo onde o erro é perceptível.
-
-    O relatório deve ser factual, direto e útil para um editor de vídeo ou legendas corrigir os itens.
+        
+                                Objetivo: Analisar o vídeo fornecido para verificar a precisão e o sincronismo entre as legendas embutidas (texto visível no vídeo) e o áudio. O foco principal é identificar discrepâncias.
+        
+                                {nomes_proprios_texto}
+        
+                                Parâmetros da Análise:
+        
+                                    Linguagem do Áudio: {linguagem_audio}
+        
+                                    Tolerância de Sincronização (Timing): {sensibilidade} segundos. Diferenças menores que este valor não são consideradas problemas.
+        
+                                    Checagem de Estilo de Texto: A análise deve flagrar erros de capitalização, como letra maiúscula indevida após vírgula dentro de uma frase.
+        
+                                CONSIDERAÇÕES ESPECIAIS PARA NOMES PRÓPRIOS:
+                                1. Os nomes listados acima são específicos e devem ser aceitos como corretos
+                                2. Pequenas variações nos nomes (diferenças de capitalização, acentuação) devem ser consideradas aceitáveis
+                                3. Se um nome da lista aparecer nas legendas, considere que está correto (não marque como erro)
+                                4. Para nomes que NÃO estão na lista, aplique as regras normais de análise
+        
+                                Passos da Análise:
+        
+                                    Detecção de Legendas: Utilize OCR para detectar e extrair todo o texto visível (legendas embutidas) no vídeo, registrando seus timestamps de entrada e saída.
+        
+                                    Transcrição do Áudio: Transcreva com precisão o áudio do vídeo, gerando uma transcrição com timestamps por frase ou segmento significativo.
+        
+                                    Comparação e Validação:
+                                    a. Sincronismo (Timing): Para cada bloco de legenda, verifique se o texto correspondente no áudio é falado dentro da janela de tempo definida pela legenda +/- a tolerância.
+                                    b. Precisão Textual: Compare o texto da legenda com a transcrição do áudio correspondente. Identifique:
+                                    * Omissões de palavras.
+                                    * Acréscimos de palavras não faladas.
+                                    * Substituições ou erros de palavras.
+                                    * Diferenças de pontuação que alterem o sentido.
+                                    * Erros de Capitalização: Ex: Letra maiúscula incorreta após uma vírgula no meio de uma frase (ex: "Vamos lá, Como está?").
+                                    c. Verificação de Nomes Próprios: Para nomes da lista fornecida, aceite pequenas variações e não marque como erro.
+        
+                                Formato do Relatório de Saída:
+        
+                                CASO A: Sincronização Correta (Sem Problemas)
+                                Se, e somente se, não forem encontrados problemas de timing (dentro da tolerância) OU de texto (incluindo os erros de capitalização especificados), retorne APENAS a seguinte mensagem:
+        
+                                    ✅ STATUS: SINCRONIZAÇÃO VERIFICADA.
+                                    As legendas embutidas no vídeo "{uploaded_video.name}" estão perfeitamente sincronizadas com o áudio e textualmente corretas dentro dos parâmetros definidos (Tolerância: {sensibilidade}s). Nenhuma ação é necessária.
+        
+                                CASO B: Problemas Encontrados
+                                Se QUALQUER problema for detectado (de timing, texto ou capitalização), retorne um relatório completo no seguinte formato:
+                                🎬 Relatório de Análise: {uploaded_video.name}
+                                
+                                📋 Resumo Executivo
+        
+                                    Status Geral: ❌ Sincronização com Problemas.
+        
+                                    Total de Problemas Identificados: [X]
+        
+                                        Problemas de Timing/Janela: [Y]
+        
+                                        Problemas Textuais (Conteúdo): [Z]
+        
+                                        Problemas de Nomes Próprios: [W] (se aplicável)
+        
+                                    Nomes Próprios Encontrados: [Listar os nomes da sua lista que apareceram no vídeo]
+                                    
+                                    Conclusão Rápida: [Uma ou duas linhas resumindo a qualidade geral, ex: "As legendas estão geralmente atrasadas e contêm vários erros de digitação."]
+        
+                                ❌ Problemas Detalhados (Com Timestamps)
+        
+                                Liste cada problema encontrado, na ordem cronológica. Use o formato abaixo para cada item:
+        
+                                    [MM:SS] - [TIPO DE PROBLEMA]
+        
+                                        Legenda no Vídeo: "[Texto exato da legenda conforme exibido]"
+        
+                                        Áudio Transcrito: "[Texto exato falado no áudio]"
+        
+                                        Descrição: [Explicação clara do problema. Ex: "Legenda exibida 2.5s antes da fala.", "Substituição de palavra.", "Capitalização incorreta após vírgula."]
+        
+                                PARA PROBLEMAS COM NOMES PRÓPRIOS (se não estiverem na lista):
+        
+                                    [MM:SS] - NOME PRÓPRIO INCORRETO
+        
+                                        Legenda no Vídeo: "[Nome como aparece]"
+        
+                                        Áudio Transcrito: "[Nome como foi falado]"
+        
+                                        Sugestão de Correção: [Nome correto, se conhecido]
+        
+                                ✅ NOMES PRÓPRIOS RECONHECIDOS CORRETAMENTE:
+                                [Liste os nomes da sua lista que foram identificados corretamente no vídeo]
+        
+                                💡 RECOMENDAÇÕES DE CORREÇÃO
+        
+                                [Forneça sugestões específicas e acionáveis com base nos problemas encontrados, por exemplo:]
+        
+                                    Ajuste de Timing: Ajuste todas as legendas a partir de [MM:SS] com um delay de aproximadamente [X] segundos.
+        
+                                    Revisão Textual: Corrija as palavras específicas citadas na seção de problemas.
+        
+                                    Revisão de Estilo: Verifique as regras de capitalização, especialmente após vírgulas.
+        
+                                    Nomes Próprios: [Sugestões específicas para nomes próprios problemáticos]
+        
+                                Notas Finais para o Analista:
+        
+                                    Seja meticuloso na comparação textual, incluindo a verificação do erro de maiúscula pós-vírgula.
+        
+                                    Os timestamps nos problemas devem referenciar o momento aproximado no vídeo onde o erro é perceptível.
+        
+                                    O relatório deve ser factual, direto e útil para um editor de vídeo ou legendas corrigir os itens.
+        
+                                    CONSIDERE OS NOMES PRÓPRIOS FORNECIDOS COMO CORRETOS - não marque como erro se estiverem na lista.
                                 '''
                                 
                                 # Usar modelo de visão para análise
@@ -3603,6 +3681,14 @@ Notas Finais para o Analista:
                     st.markdown("---")
                     st.subheader("📊 Resultados da Análise")
                     
+                    # Mostrar estatísticas dos nomes próprios
+                    if nomes_proprios:
+                        st.info(f"**🔤 Nomes próprios configurados:** {len(nomes_proprios)}")
+                        if len(nomes_proprios) <= 15:
+                            st.caption(f"{', '.join(nomes_proprios)}")
+                        else:
+                            st.caption(f"{', '.join(nomes_proprios[:15])}... e mais {len(nomes_proprios) - 15}")
+                    
                     # Vídeos com problemas
                     videos_com_problemas = [r for r in resultados_legendas if r['tem_problemas']]
                     
@@ -3624,7 +3710,7 @@ Notas Finais para o Analista:
                                 st.markdown(resultado['analise'])
                     
                     # Estatísticas
-                    col_stat1, col_stat2, col_stat3 = st.columns(3)
+                    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
                     with col_stat1:
                         st.metric("Vídeos Analisados", len(uploaded_videos_legendas))
                     with col_stat2:
@@ -3632,6 +3718,8 @@ Notas Finais para o Analista:
                     with col_stat3:
                         percentual = (len(videos_com_problemas) / len(uploaded_videos_legendas) * 100) if uploaded_videos_legendas else 0
                         st.metric("% com Problemas", f"{percentual:.1f}%")
+                    with col_stat4:
+                        st.metric("Nomes Configurados", len(nomes_proprios))
             
             # Mostrar análises anteriores se existirem
             elif 'resultados_analise_legendas' in st.session_state and st.session_state.resultados_analise_legendas:
