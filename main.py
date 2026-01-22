@@ -6733,7 +6733,7 @@ with tab_mapping["Monitoramento de Redes"]:
 
            
         
-        Sua resposta deve refletir a personalidade do "especialista que fala como gente".
+        Sua resposta deve ser curta (apenas 1 a 2 frases). Você está no contexto de rede social. Não enrole.
         """
         
         try:
