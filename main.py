@@ -4803,7 +4803,7 @@ Notas Finais para o Analista:
             else:
                 st.info("🎬 Carregue um ou mais vídeos para iniciar a validação")
                 
-# --- ABA: GERAÇÃO DE CONTEÚDO (MODIFICADA PARA BUSCA WEB COM FONTES) ---
+# --- ABA: GERAÇÃO DE CONTEÚDO (COM BUSCA WEB FUNCIONAL) ---
 with tab_mapping["✨ Geração de Conteúdo"]:
     st.header("✨ Geração de Conteúdo com Múltiplos Insumos")
     
@@ -4885,11 +4885,11 @@ with tab_mapping["✨ Geração de Conteúdo"]:
         except Exception as e:
             return f"❌ Erro ao gerar conteúdo com {modelo_escolhido}: {str(e)}"
 
-    # Função para realizar busca web COM FONTES (MODIFICADA)
+    # FUNÇÃO PARA BUSCA WEB COM FONTES - CORRIGIDA E FUNCIONAL
     def realizar_busca_web_com_fontes(termos_busca: str, contexto_agente: str = None) -> str:
         """Realiza busca web usando API do Perplexity e RETORNA SEMPRE AS FONTES"""
         if not perp_api_key:
-            return "❌ API do Perplexity não configurada. A busca web não está disponível."
+            return "❌ API do Perplexity não configurada. Configure a variável de ambiente PERP_API_KEY."
         
         try:
             headers = {
@@ -4898,40 +4898,39 @@ with tab_mapping["✨ Geração de Conteúdo"]:
             }
             
             # Construir mensagem com contexto e EXIGÊNCIA EXPLÍCITA de fontes
-            mensagem_sistema = contexto_agente if contexto_agente else "Você é um assistente de pesquisa que fornece informações precisas e atualizadas."
+            mensagem_sistema = contexto_agente if contexto_agente else "Você é um assistente de pesquisa que fornece informações precisas e atualizadas COM FONTES."
             
-            # PROMPT MODIFICADO: EXIGIR SEMPRE FONTES
+            # PROMPT MODIFICADO: EXIGIR SEMPRE FONTES COM FORMATO ESPECÍFICO
             data = {
                 "model": "sonar-pro",
                 "messages": [
                     {
                         "role": "system",
-                        "content": f"{mensagem_sistema}\n\nIMPORTANTE: Você DEVE SEMPRE incluir as fontes (links e nomes dos sites) de onde tirou as informações. Para cada informação ou dado, mencione a fonte específica."
+                        "content": f"{mensagem_sistema}\n\nIMPORTANTE: Você DEVE SEMPRE incluir as fontes (links e nomes dos sites) de onde tirou as informações. Para cada informação ou dado, mencione a fonte específica no formato: **Fonte: [Nome do Site/Portal] ([link completo])**"
                     },
                     {
                         "role": "user", 
-                        "content": f"""Notícias recentes sobre: {termos_busca}
-                        
-                        FORNECER INFORMAÇÕES COM:
-                        1. Dados e estatísticas atualizadas - SEMPRE COM FONTE
-                        2. Tendências recentes - SEMPRE COM FONTE
-                        3. Exemplos práticos - SEMPRE COM FONTE
-                        
+                        "content": f"""Pesquise informações sobre: {termos_busca}
+
                         REQUISITOS OBRIGATÓRIOS:
-                        - Para cada informação fornecida, mencione a fonte específica
-                        - Inclua o nome do site/source e o link
-                        - Seja preciso nas citações
-                        - Use formato: "Fonte: [Nome do Site] ([link])"
-                        - Cite múltiplas fontes quando aplicável
+                        1. Forneça informações TÉCNICAS e ATUALIZADAS (últimos 2-3 anos)
+                        2. INCLUA SEMPRE as fontes para cada informação
+                        3. Use o formato: **Fonte: [Nome do Site/Portal] ([link completo])**
+                        4. Priorize fontes confiáveis: sites governamentais, instituições de pesquisa, universidades, órgãos oficiais
+                        5. Forneça dados concretos: números, estatísticas, resultados
+                        6. Seja preciso nas citações
                         
-                        Formato de resposta esperado:
-                        [Informação 1] Fonte: [Nome do Site] ([link])
-                        [Informação 2] Fonte: [Nome do Site] ([link])
+                        ESTRUTURA DA RESPOSTA:
+                        1. Introdução sobre o tema
+                        2. Dados e estatísticas (com fontes)
+                        3. Tendências recentes (com fontes)
+                        4. Melhores práticas (com fontes)
+                        5. Conclusão com insights (com fontes)
                         
-                        sempre forneça as fontes."""
+                        FORNECER INFORMAÇÕES COM ANCORAGEM DE REFERÊNCIAS - cada parágrafo ou dado deve ter sua fonte citada."""
                     }
                 ],
-                "max_tokens": 2500,
+                "max_tokens": 4000,
                 "temperature": 0.0
             }
             
@@ -4939,7 +4938,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                 "https://api.perplexity.ai/chat/completions",
                 headers=headers,
                 json=data,
-                timeout=30
+                timeout=60  # Aumentar timeout para busca mais complexa
             )
             
             if response.status_code == 200:
@@ -4947,14 +4946,17 @@ with tab_mapping["✨ Geração de Conteúdo"]:
                 resposta_completa = result['choices'][0]['message']['content']
                 
                 # Verificar se há fontes na resposta
-                if any(keyword in resposta_completa.lower() for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br', '.org']):
+                if any(keyword in resposta_completa.lower() for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br', '.org', '.gov']):
+                    st.success("✅ Busca web realizada com fontes!")
                     return resposta_completa
                 else:
-                    # Se não houver fontes, adicionar um aviso
-                    return f"{resposta_completa}\n\n⚠️ **AVISO:** As fontes não foram incluídas na resposta da API. Tente reformular a pergunta."
+                    # Se não houver fontes, adicionar um aviso e tentar reformular
+                    return f"{resposta_completa}\n\n⚠️ **AVISO:** As fontes não foram incluídas na resposta. Recomendo reformular a busca para termos mais específicos."
             else:
-                return f"❌ Erro na busca web: {response.status_code}"
+                return f"❌ Erro na busca web (código {response.status_code}): {response.text}"
                 
+        except requests.exceptions.Timeout:
+            return "❌ Tempo esgotado na busca web. Tente novamente com termos mais específicos."
         except Exception as e:
             return f"❌ Erro ao realizar busca web: {str(e)}"
 
@@ -4975,25 +4977,31 @@ with tab_mapping["✨ Geração de Conteúdo"]:
             if contexto_agente:
                 messages.append({
                     "role": "system",
-                    "content": f"Contexto do agente: {contexto_agente}"
+                    "content": f"Contexto do agente: {contexto_agente}\n\nIMPORTANTE: Sempre cite as fontes específicas das URLs analisadas."
+                })
+            else:
+                messages.append({
+                    "role": "system",
+                    "content": "Você é um analista de conteúdo. Sempre cite as fontes específicas das URLs analisadas."
                 })
             
             messages.append({
                 "role": "user",
                 "content": f"""Analise as seguintes URLs e responda à pergunta:
 
-URLs para análise (SEMPRE CITE AS FONTES):
+URLs para análise (CITE CADA UMA ESPECIFICAMENTE):
 {urls_contexto}
 
-Pergunta: {pergunta}
+Pergunta específica: {pergunta}
 
 REQUISITOS OBRIGATÓRIOS:
-- Para cada informação, mencione de qual URL específica veio
-- Use formato: "Fonte: [URL específica]"
-- Se uma informação vem de múltiplas URLs, cite todas
-- Seja preciso nas citações
+1. Para cada informação, mencione de qual URL específica veio
+2. Use formato: **Fonte: [Nome do Site/Portal] ([URL específica])**
+3. Se uma informação vem de múltiplas URLs, cite todas
+4. Seja preciso nas citações
+5. Analise o conteúdo técnico de cada URL
 
-Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando as fontes."""
+Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando as fontes específicas."""
             })
             
             data = {
@@ -5138,17 +5146,18 @@ Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando
                 **✨ RECOMENDAÇÃO:** Use a busca web para obter informações atualizadas e verídicas com fontes.
                 
                 **✅ Vantagens:**
-                - Informações atualizadas
-                - Fontes verificáveis
-                - Dados concretos
+                - Informações atualizadas (últimos 2-3 anos)
+                - Fontes verificáveis e ancoradas
+                - Dados concretos e estatísticas
                 - Referências para credibilidade
+                - Citações específicas com links
                 """)
                 
                 # Opção para busca web (AGORA COM DESTAQUE)
                 usar_busca_web = st.checkbox(
                     "🔍 Realizar busca web para obter informações atualizadas com fontes",
                     value=True,  # Ativado por padrão
-                    help="Ativa busca por informações atualizadas na web usando Perplexity AI (SEMPRE retorna fontes)",
+                    help="Ativa busca por informações atualizadas na web usando Perplexity AI (SEMPRE retorna fontes ancoradas)",
                     key="usar_busca_web_conteudo"
                 )
                 
@@ -5157,7 +5166,7 @@ Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando
                         st.error("❌ API do Perplexity não configurada. Configure a variável de ambiente PERP_API_KEY.")
                         st.info("💡 **Dica:** A busca web fornece informações atualizadas com fontes verificáveis, aumentando a credibilidade do conteúdo.")
                     else:
-                        st.success("✅ Busca web disponível - Fontes serão SEMPRE incluídas")
+                        st.success("✅ Busca web disponível - Fontes serão SEMPRE incluídas e ancoradas")
                         
                         # Card de instruções para busca
                         st.info("💡 **Como usar a busca web:** Digite termos específicos para obter informações atualizadas com fontes.")
@@ -5166,13 +5175,24 @@ Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando
                             "🔎 Termos para busca web (obtenha informações com fontes):",
                             height=100,
                             placeholder="Ex: tendências marketing digital 2024, estatísticas redes sociais Brasil, exemplos campanhas bem-sucedidas...",
-                            help="Termos específicos para buscar informações atualizadas na web COM FONTES",
+                            help="Termos específicos para buscar informações atualizadas na web COM FONTES ANCORADAS",
                             key="termos_busca_conteudo"
                         )
                         
                         # Contador de caracteres para termos de busca
                         if termos_busca:
                             st.caption(f"📝 {len(termos_busca)} caracteres")
+                            
+                            # Dicas para melhor busca
+                            with st.expander("💡 Dicas para melhor busca"):
+                                st.markdown("""
+                                **Para melhores resultados:**
+                                1. Seja específico: "tendências agricultura digital 2024" em vez de "agricultura"
+                                2. Inclua o ano: "estatísticas redes sociais 2024"
+                                3. Use termos técnicos: "tecnologia agricultura de precisão"
+                                4. Mencione fontes desejadas: "dados Embrapa sobre soja"
+                                5. Peça dados concretos: "estatísticas, números, resultados"
+                                """)
             
             # Opção 1: Upload de múltiplos arquivos
             st.write("📎 Upload de Arquivos (PDF, TXT, PPTX, DOCX):")
@@ -5614,17 +5634,17 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                         if transcricoes_texto and transcricoes_texto.strip():
                             contexto_completo += "### TRANSCRIÇÕES DE MÍDIA:\n" + transcricoes_texto + "\n\n"
                         
-                        # Realizar busca web se solicitado (COM FONTES OBRIGATÓRIAS)
+                        # REALIZAR BUSCA WEB SE SOLICITADO (COM FONTES OBRIGATÓRIAS)
                         busca_web_resultado = ""
                         if usar_busca_web and termos_busca and termos_busca.strip() and perp_api_key:
-                            with st.spinner("🔍 Realizando busca web (obtendo fontes)..."):
+                            with st.spinner("🔍 Realizando busca web (obtendo fontes ancoradas)..."):
                                 # Preparar contexto do agente para busca
                                 contexto_agente_busca = ""
                                 if st.session_state.agente_selecionado:
                                     agente = st.session_state.agente_selecionado
                                     contexto_agente_busca = construir_contexto(agente, st.session_state.segmentos_selecionados)
                                 
-                                # Usar a NOVA função que EXIGE fontes
+                                # Usar a função corrigida que EXIGE fontes ancoradas
                                 busca_web_resultado = realizar_busca_web_com_fontes(termos_busca, contexto_agente_busca)
                                 
                                 if "❌" not in busca_web_resultado:
@@ -5727,7 +5747,7 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                             
                             # Adicionar instrução sobre fontes se marcado
                             if incluir_fontes_personalizado:
-                                prompt_processado += "\n\n**IMPORTANTE:** SEMPRE cite as fontes das informações, incluindo nome do site e link específico."
+                                prompt_processado += "\n\n**IMPORTANTE:** SEMPRE cite as fontes das informações, incluindo nome do site e link específico no formato **Fonte: [Nome do Site] ([link])**."
                             
                             prompt_final = f"""
                             {contexto_agente}
@@ -5753,8 +5773,8 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                             conteudo_html = re.sub(r'### (.*?)\n', r'<h3>\1</h3>', conteudo_html)
                             conteudo_html = re.sub(r'## (.*?)\n', r'<h2>\1</h2>', conteudo_html)
                             conteudo_html = re.sub(r'# (.*?)\n', r'<h1>\1</h1>', conteudo_html)
-                            # Converter links markdown para HTML
-                            conteudo_html = re.sub(r'\[(.*?)\]\((.*?)\)', r'<a href="\2" target="_blank">\1</a>', conteudo_html)
+                            # Converter links markdown para HTML (preservar fontes)
+                            conteudo_html = re.sub(r'\*\*Fonte:\s*\[(.*?)\]\((.*?)\)\*\*', r'<strong>Fonte: <a href="\2" target="_blank">\1</a></strong>', conteudo_html)
                             conteudo_html = conteudo_html.replace('\n', '<br>')
                         
                         # Armazenar no session state para uso posterior
@@ -5768,7 +5788,7 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                         extensao = ".html" if "HTML" in formato_output else ".md" if "markdown" in formato_output.lower() else ".txt"
                         
                         # Mostrar conteúdo gerado
-                        st.subheader("📄 Conteúdo Gerado (com Fontes)")
+                        st.subheader("📄 Conteúdo Gerado (com Fontes Ancoradas)")
                         
                         if formato_output == "HTML Básico" or formato_output == "HTML básico":
                             st.components.v1.html(conteudo_html, height=400, scrolling=True)
@@ -5779,7 +5799,7 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                         
                         # Verificar se há fontes no conteúdo gerado
                         conteudo_lower = conteudo_gerado.lower()
-                        tem_fontes = any(keyword in conteudo_lower for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br'])
+                        tem_fontes = any(keyword in conteudo_lower for keyword in ['fonte:', 'source:', 'http', 'https', 'www.', '.com', '.br', '.gov'])
                         
                         # Estatísticas
                         palavras_count = len(conteudo_gerado.split())
@@ -5801,9 +5821,10 @@ Gere o conteúdo em formato {formato} com aproximadamente {palavras} palavras.""
                             
                             **Sugestões:**
                             1. Verifique se a busca web retornou informações com fontes
-                            2. Tente reformular os termos de busca
+                            2. Tente reformular os termos de busca para serem mais específicos
                             3. Use o modo "Configurações Padrão" com "Destacar fontes" ativado
                             4. Solicite explicitamente fontes no prompt personalizado
+                            5. Inclua palavras como "fontes", "referências", "citações" no prompt
                             """)
                         
                         # Botões de download
