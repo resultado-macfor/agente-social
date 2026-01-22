@@ -5183,16 +5183,7 @@ Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando
                         if termos_busca:
                             st.caption(f"📝 {len(termos_busca)} caracteres")
                             
-                            # Dicas para melhor busca
-                            with st.expander("💡 Dicas para melhor busca"):
-                                st.markdown("""
-                                **Para melhores resultados:**
-                                1. Seja específico: "tendências agricultura digital 2024" em vez de "agricultura"
-                                2. Inclua o ano: "estatísticas redes sociais 2024"
-                                3. Use termos técnicos: "tecnologia agricultura de precisão"
-                                4. Mencione fontes desejadas: "dados Embrapa sobre soja"
-                                5. Peça dados concretos: "estatísticas, números, resultados"
-                                """)
+                           
             
             # Opção 1: Upload de múltiplos arquivos
             st.write("📎 Upload de Arquivos (PDF, TXT, PPTX, DOCX):")
