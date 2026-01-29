@@ -6686,71 +6686,71 @@ def transcrever_audio_video(arquivo, tipo):
 
 
 with tab_mapping["📅 Calendário de Temas"]:
-        st.header("📅 Gerador de Calendário Mensal de Temas")
-        st.markdown("Crie um calendário de temas mensal baseado no contexto do agente selecionado e suas especificações.")
+    st.header("📅 Gerador de Calendário Mensal de Temas")
+    st.markdown("Crie um calendário de temas mensal baseado no contexto do agente selecionado e suas especificações.")
+    
+    if not st.session_state.agente_selecionado:
+        st.info("Selecione um agente primeiro na aba de Chat para usar seu contexto na geração do calendário.")
+    else:
+        agente = st.session_state.agente_selecionado
+        st.success(f"🤖 Agente selecionado: **{agente['nome']}**")
         
-        if not st.session_state.agente_selecionado:
-            st.info("Selecione um agente primeiro na aba de Chat para usar seu contexto na geração do calendário.")
-        else:
-            agente = st.session_state.agente_selecionado
-            st.success(f"🤖 Agente selecionado: **{agente['nome']}**")
+        # Layout em colunas
+        col_config, col_prev = st.columns([1, 1])
+        
+        with col_config:
+            # Informações básicas
+            st.subheader("⚙️ Configurações do Calendário")
             
-            # Layout em colunas
-            col_config, col_prev = st.columns([1, 1])
+            mes_ano = st.date_input(
+                "Mês/Ano para o calendário:",
+                value=datetime.datetime.now(),
+                format="MM/YYYY",
+                key="calendario_mes_ano"
+            )
             
-            with col_config:
-                # Informações básicas
-                st.subheader("⚙️ Configurações do Calendário")
-                
-                mes_ano = st.date_input(
-                    "Mês/Ano para o calendário:",
-                    value=datetime.datetime.now(),
-                    format="MM/YYYY",
-                    key="calendario_mes_ano"
-                )
-                
-                numero_temas = st.slider(
-                    "Número de temas para o mês:",
-                    min_value=4,
-                    max_value=31,
-                    value=12,
-                    help="Quantos temas diferentes você quer gerar para o mês",
-                    key="cal_numero_temas"
-                )
-                
-         
-                
-      
-                
-                incluir_dias_semana = st.checkbox(
-                    "Incluir dias da semana específicos",
-                    value=True,
-                    help="Distribuir temas por dias da semana específicos",
-                    key="cal_dias_semana"
-                )
-                
-                incluir_feriados_eventos = st.checkbox(
-                    "Incluir feriados e eventos relevantes",
-                    value=True,
-                    help="Considerar feriados e eventos do período",
-                    key="cal_feriados"
-                )
-                
-                segmentos_calendario = st.multiselect(
-                    "Segmentos do agente a considerar:",
-                    options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
-                    default=st.session_state.get('segmentos_selecionados', ["base_conhecimento"]),
-                    help="Quais bases de conhecimento do agente usar para gerar os temas",
-                    key="cal_segmentos"
-                )
+            numero_temas = st.slider(
+                "Número de temas para o mês:",
+                min_value=4,
+                max_value=31,
+                value=12,
+                help="Quantos temas diferentes você quer gerar para o mês",
+                key="cal_numero_temas"
+            )
             
-            with col_prev:
-                st.subheader("🎯 Direcionamento do Usuário")
-                
-                direcionamento_usuario = st.text_area(
-                    "Forneça direcionamento específico para os temas:",
-                    height=200,
-                    placeholder="""Exemplos:
+     
+            
+  
+            
+            incluir_dias_semana = st.checkbox(
+                "Incluir dias da semana específicos",
+                value=True,
+                help="Distribuir temas por dias da semana específicos",
+                key="cal_dias_semana"
+            )
+            
+            incluir_feriados_eventos = st.checkbox(
+                "Incluir feriados e eventos relevantes",
+                value=True,
+                help="Considerar feriados e eventos do período",
+                key="cal_feriados"
+            )
+            
+            segmentos_calendario = st.multiselect(
+                "Segmentos do agente a considerar:",
+                options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
+                default=st.session_state.get('segmentos_selecionados', ["base_conhecimento"]),
+                help="Quais bases de conhecimento do agente usar para gerar os temas",
+                key="cal_segmentos"
+            )
+        
+        with col_prev:
+            st.subheader("🎯 Direcionamento do Usuário")
+            
+            direcionamento_usuario = st.text_area(
+                "Forneça direcionamento específico para os temas:",
+                height=200,
+                placeholder="""Exemplos:
 - Foco em lançamento de novos produtos
 - Temas educacionais sobre práticas sustentáveis
 - Conteúdo técnico para produtores rurais
@@ -6758,342 +6758,342 @@ with tab_mapping["📅 Calendário de Temas"]:
 - Tendências do setor para este mês
 - Problemas específicos do público-alvo
 - Conteúdo para engajamento em redes sociais""",
-                    help="Quanto mais específico, mais direcionados serão os temas gerados",
-                    key="cal_direcionamento"
-                )
-                
-                palavras_chave_cal = st.text_input(
-                    "Palavras-chave importantes (opcional):",
-                    placeholder="separadas por vírgula",
-                    help="Palavras-chave que devem ser consideradas nos temas",
-                    key="cal_palavras_chave"
-                )
-                
+                help="Quanto mais específico, mais direcionados serão os temas gerados",
+                key="cal_direcionamento"
+            )
+            
+            palavras_chave_cal = st.text_input(
+                "Palavras-chave importantes (opcional):",
+                placeholder="separadas por vírgula",
+                help="Palavras-chave que devem ser consideradas nos temas",
+                key="cal_palavras_chave"
+            )
+            
+    
         
-            
-            # Botão para gerar calendário
-            if st.button("📅 Gerar Calendário de Temas", type="primary", use_container_width=True, key="gerar_calendario_btn"):
-                with st.spinner("🔄 Analisando contexto e gerando calendário de temas..."):
-                    try:
-                        # Construir contexto do agente
-                        contexto_agente = ""
-                        if segmentos_calendario:
-                            if "system_prompt" in segmentos_calendario and agente.get('system_prompt'):
-                                contexto_agente += f"### INSTRUÇÕES DO SISTEMA ###\n{agente['system_prompt']}\n\n"
-                            
-                            if "base_conhecimento" in segmentos_calendario and agente.get('base_conhecimento'):
-                                contexto_agente += f"### BASE DE CONHECIMENTO ###\n{agente['base_conhecimento']}\n\n"
-                            
-                            if "comments" in segmentos_calendario and agente.get('comments'):
-                                contexto_agente += f"### COMENTÁRIOS DO CLIENTE ###\n{agente['comments']}\n\n"
-                            
-                            if "planejamento" in segmentos_calendario and agente.get('planejamento'):
-                                contexto_agente += f"### PLANEJAMENTO ###\n{agente['planejamento']}\n\n"
+        # Botão para gerar calendário
+        if st.button("📅 Gerar Calendário de Temas", type="primary", use_container_width=True, key="gerar_calendario_btn"):
+            with st.spinner("🔄 Analisando contexto e gerando calendário de temas..."):
+                try:
+                    # Construir contexto do agente
+                    contexto_agente = ""
+                    if segmentos_calendario:
+                        if "system_prompt" in segmentos_calendario and agente.get('system_prompt'):
+                            contexto_agente += f"### INSTRUÇÕES DO SISTEMA ###\n{agente['system_prompt']}\n\n"
                         
-                        # Construir prompt para geração do calendário
-                        mes_nome = mes_ano.strftime("%B").capitalize()
-                        ano = mes_ano.year
+                        if "base_conhecimento" in segmentos_calendario and agente.get('base_conhecimento'):
+                            contexto_agente += f"### BASE DE CONHECIMENTO ###\n{agente['base_conhecimento']}\n\n"
                         
-                        prompt_calendario = f"""
-                        ## TAREFA: GERAR CALENDÁRIO MENSAL DE TEMAS
+                        if "comments" in segmentos_calendario and agente.get('comments'):
+                            contexto_agente += f"### COMENTÁRIOS DO CLIENTE ###\n{agente['comments']}\n\n"
                         
-                        **CONTEXTO DO AGENTE:**
-                        {contexto_agente}
-                        
-                        **PERÍODO:** {mes_nome} de {ano}
-                 
-                        **INTENSIDADE:** {intensidade_temas}
-                        **NÚMERO DE TEMAS:** {numero_temas}
-                        
-                        **DIRECIONAMENTO DO USUÁRIO:**
-                        {direcionamento_usuario}
-                        
-                        **CONFIGURAÇÕES ADICIONAIS:**
-                        - Palavras-chave: {palavras_chave_cal if palavras_chave_cal else "Não especificadas"}
-              
-                        - Incluir dias da semana: {incluir_dias_semana}
-                        - Incluir feriados/eventos: {incluir_feriados_eventos}
-                        
-                        ## INSTRUÇÕES DETALHADAS:
-                        
-                        1. **BASE TEMÁTICA:** Use o contexto do agente como base para todos os temas
-                        2. **RELEVÂNCIA:** Os temas devem ser relevantes para o período ({mes_nome})
-                        3. **VARIEDADE:** Crie temas variados cobrindo diferentes aspectos do contexto
-                        4. **PRATICIDADE:** Cada tema deve ser acionável e útil para criação de conteúdo
-                        5. **ALINHAMENTO:** Todos os temas devem se alinhar com as diretrizes do agente
-                        6. **ORIGINALIDADE:** Evite temas genéricos - personalize com base no contexto
-                        
-                        ## FORMATO DE SAIDA OBRIGATÓRIO:
-                        
-                        # 📅 CALENDÁRIO DE TEMAS - {mes_nome.upper()} {ano}
-                        
-                        ## 🎯 CONTEXTO GERAL
-                        [Breve introdução explicando a abordagem temática do mês]
-                        
-                        ## 📊 RESUMO DO MÊS
-                        - **Foco principal:** [Tema central do mês]
-                        - **Público-alvo:** {publico_alvo_cal if publico_alvo_cal else "Público do agente"}
-                        - **Objetivos:** [2-3 objetivos principais]
-                        
-                        ## 🗓️ CALENDÁRIO SEMANAL DETALHADO
-                        
-                        """
-                        
-                        # Adicionar estrutura de semanas
-                        semanas_mes = 4  # Aproximadamente
-                        temas_por_semana = max(1, numero_temas // semanas_mes)
-                        
-                        for semana in range(1, semanas_mes + 1):
-                            prompt_calendario += f"""
-                        ### 📋 SEMANA {semana} (Temas {((semana-1)*temas_por_semana)+1} a {min(semana*temas_por_semana, numero_temas)})
-                        
-                        """
-                        
-                            for dia in range(1, 8):  # 7 dias
-                                if incluir_dias_semana:
-                                    dias_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
-                                    dia_nome = dias_semana[dia-1]
-                                    prompt_calendario += f"**{dia_nome}:** "
-                                
-                                prompt_calendario += f"[Tema específico relacionado ao contexto do agente]\n"
-                                prompt_calendario += f"**Ideias:** [2-3 ideias de conteúdo para este tema]\n"
-                                prompt_calendario += f"**Formatos sugeridos:** [Formatos ideais para este tema]\n"
-                                prompt_calendario += f"**Hashtags sugeridas:** [Hashtags relevantes]\n\n"
-                        
+                        if "planejamento" in segmentos_calendario and agente.get('planejamento'):
+                            contexto_agente += f"### PLANEJAMENTO ###\n{agente['planejamento']}\n\n"
+                    
+                    # Construir prompt para geração do calendário
+                    mes_nome = mes_ano.strftime("%B").capitalize()
+                    ano = mes_ano.year
+                    
+                    prompt_calendario = f"""
+                    ## TAREFA: GERAR CALENDÁRIO MENSAL DE TEMAS
+                    
+                    **CONTEXTO DO AGENTE:**
+                    {contexto_agente}
+                    
+                    **PERÍODO:** {mes_nome} de {ano}
+             
+                    **INTENSIDADE:** {intensidade_temas}
+                    **NÚMERO DE TEMAS:** {numero_temas}
+                    
+                    **DIRECIONAMENTO DO USUÁRIO:**
+                    {direcionamento_usuario}
+                    
+                    **CONFIGURAÇÕES ADICIONAIS:**
+                    - Palavras-chave: {palavras_chave_cal if palavras_chave_cal else "Não especificadas"}
+          
+                    - Incluir dias da semana: {incluir_dias_semana}
+                    - Incluir feriados/eventos: {incluir_feriados_eventos}
+                    
+                    ## INSTRUÇÕES DETALHADAS:
+                    
+                    1. **BASE TEMÁTICA:** Use o contexto do agente como base para todos os temas
+                    2. **RELEVÂNCIA:** Os temas devem ser relevantes para o período ({mes_nome})
+                    3. **VARIEDADE:** Crie temas variados cobrindo diferentes aspectos do contexto
+                    4. **PRATICIDADE:** Cada tema deve ser acionável e útil para criação de conteúdo
+                    5. **ALINHAMENTO:** Todos os temas devem se alinhar com as diretrizes do agente
+                    6. **ORIGINALIDADE:** Evite temas genéricos - personalize com base no contexto
+                    
+                    ## FORMATO DE SAIDA OBRIGATÓRIO:
+                    
+                    # 📅 CALENDÁRIO DE TEMAS - {mes_nome.upper()} {ano}
+                    
+                    ## 🎯 CONTEXTO GERAL
+                    [Breve introdução explicando a abordagem temática do mês]
+                    
+                    ## 📊 RESUMO DO MÊS
+                    - **Foco principal:** [Tema central do mês]
+                    - **Público-alvo:** {publico_alvo_cal if publico_alvo_cal else "Público do agente"}
+                    - **Objetivos:** [2-3 objetivos principais]
+                    
+                    ## 🗓️ CALENDÁRIO SEMANAL DETALHADO
+                    
+                    """
+                    
+                    # Adicionar estrutura de semanas
+                    semanas_mes = 4  # Aproximadamente
+                    temas_por_semana = max(1, numero_temas // semanas_mes)
+                    
+                    for semana in range(1, semanas_mes + 1):
                         prompt_calendario += f"""
-                        ## 🎨 TEMAS DESTAQUE DO MÊS
+                    ### 📋 SEMANA {semana} (Temas {((semana-1)*temas_por_semana)+1} a {min(semana*temas_por_semana, numero_temas)})
+                    
+                    """
+                    
+                        for dia in range(1, 8):  # 7 dias
+                            if incluir_dias_semana:
+                                dias_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
+                                dia_nome = dias_semana[dia-1]
+                                prompt_calendario += f"**{dia_nome}:** "
+                            
+                            prompt_calendario += f"[Tema específico relacionado ao contexto do agente]\n"
+                            prompt_calendario += f"**Ideias:** [2-3 ideias de conteúdo para este tema]\n"
+                            prompt_calendario += f"**Formatos sugeridos:** [Formatos ideais para este tema]\n"
+                            prompt_calendario += f"**Hashtags sugeridas:** [Hashtags relevantes]\n\n"
+                    
+                    prompt_calendario += f"""
+                    ## 🎨 TEMAS DESTAQUE DO MÊS
+                    
+                    ### 🥇 TEMA PRINCIPAL
+                    **Título:** [Título do tema principal]
+                    **Descrição:** [Descrição detalhada]
+                    **Objetivo:** [Objetivo específico]
+                    **Métricas de sucesso:** [Como medir o sucesso]
+                    
+                    ### 🥈 TEMAS SECUNDÁRIOS
+                    1. **Tema 1:** [Título] - [Breve descrição]
+                    2. **Tema 2:** [Título] - [Breve descrição]
+                    3. **Tema 3:** [Título] - [Breve descrição]
+                    
+                    ## 🔗 INTEGRAÇÃO COM CONTEÚDO EXISTENTE
+                    [Como esses temas se conectam com conteúdo anterior/futuro]
+                    
+                    ## 📈 RECOMENDAÇÕES DE IMPLEMENTAÇÃO
+                    1. **Planejamento:** [Dicas para planejar a execução]
+                    2. **Recursos necessários:** [Recursos humanos e materiais]
+                    3. **Cronograma sugerido:** [Timeline para implementação]
+                    4. **Avaliação:** [Como avaliar o desempenho dos temas]
+                    
+                    ## 🚀 PRÓXIMOS PASSOS
+                    [Ações imediatas para começar a trabalhar com este calendário]
+                    
+                    ---
+                    *Calendário gerado automaticamente com base no agente {agente['nome']}*
+                    """
+                    
+                    # Gerar o calendário
+                    calendario_gerado = gerar_resposta_modelo(prompt_calendario, "Gemini")
+                    
+                    # Armazenar na sessão
+                    st.session_state.calendario_gerado = calendario_gerado
+                    st.session_state.calendario_info = {
+                        'mes': mes_nome,
+                        'ano': ano,
+                        'agente': agente['nome'],
+                        'numero_temas': numero_temas,
+                        'formato': formato_temas
+                    }
+                    
+                    # Exibir resultado
+                    st.success("✅ Calendário gerado com sucesso!")
+                    st.markdown("---")
+                    
+                    # Exibir em expanders para melhor organização
+                    with st.expander("📅 VISUALIZAR CALENDÁRIO COMPLETO", expanded=True):
+                        st.markdown(calendario_gerado)
+                    
+                    # Estatísticas
+                    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+                    with col_stat1:
+                        st.metric("Mês", mes_nome)
+                    with col_stat2:
+                        st.metric("Temas Gerados", numero_temas)
+                    with col_stat3:
+                        st.metric("Agente", agente['nome'][:10] + "...")
+                    with col_stat4:
+                        st.metric("Formato", formato_temas)
+                    
+                    # Opções de download
+                    st.markdown("---")
+                    st.subheader("📥 Exportar Calendário")
+                    
+                    col_dl1, col_dl2, col_dl3 = st.columns(3)
+                    
+                    with col_dl1:
+                        st.download_button(
+                            "💾 Baixar como TXT",
+                            data=calendario_gerado,
+                            file_name=f"calendario_temas_{mes_nome}_{ano}_{agente['nome'][:20]}.txt",
+                            mime="text/plain",
+                            key="download_calendario_txt"
+                        )
+                    
+                    with col_dl2:
+                        # Formatar como CSV simples
+                        linhas = calendario_gerado.split('\n')
+                        temas_csv = "Dia;Tema;Ideias;Formatos;Hashtags\n"
+                        dia_atual = ""
                         
-                        ### 🥇 TEMA PRINCIPAL
-                        **Título:** [Título do tema principal]
-                        **Descrição:** [Descrição detalhada]
-                        **Objetivo:** [Objetivo específico]
-                        **Métricas de sucesso:** [Como medir o sucesso]
+                        for linha in linhas:
+                            if "**Segunda:**" in linha or "**Terça:**" in linha or "**Quarta:**" in linha or "**Quinta:**" in linha or "**Sexta:**" in linha or "**Sábado:**" in linha or "**Domingo:**" in linha:
+                                dia_atual = linha.split("**")[1].replace(":", "")
+                                tema = linha.split("**")[2].strip() if len(linha.split("**")) > 2 else ""
+                                temas_csv += f"{dia_atual};{tema};;;\n"
+                            elif "**Ideias:**" in linha and dia_atual:
+                                ideias = linha.replace("**Ideias:**", "").strip()
+                                temas_csv = temas_csv[:-1] + f";{ideias};;\n"
+                            elif "**Formatos sugeridos:**" in linha and dia_atual:
+                                formatos = linha.replace("**Formatos sugeridos:**", "").strip()
+                                temas_csv = temas_csv[:-1] + f";;{formatos};\n"
+                            elif "**Hashtags sugeridas:**" in linha and dia_atual:
+                                hashtags = linha.replace("**Hashtags sugeridas:**", "").strip()
+                                temas_csv = temas_csv[:-1] + f";;;{hashtags}\n"
+                                dia_atual = ""
                         
-                        ### 🥈 TEMAS SECUNDÁRIOS
-                        1. **Tema 1:** [Título] - [Breve descrição]
-                        2. **Tema 2:** [Título] - [Breve descrição]
-                        3. **Tema 3:** [Título] - [Breve descrição]
+                        st.download_button(
+                            "📊 Baixar como CSV",
+                            data=temas_csv,
+                            file_name=f"calendario_temas_{mes_nome}_{ano}_csv.csv",
+                            mime="text/csv",
+                            key="download_calendario_csv"
+                        )
+                    
+                    with col_dl3:
+                        # Criar versão simplificada para impressão
+                        calendario_simples = f"""
+                        CALENDÁRIO DE TEMAS - {mes_nome.upper()} {ano}
+                        ============================================
                         
-                        ## 🔗 INTEGRAÇÃO COM CONTEÚDO EXISTENTE
-                        [Como esses temas se conectam com conteúdo anterior/futuro]
+                        Agente: {agente['nome']}
+                        Gerado em: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
                         
-                        ## 📈 RECOMENDAÇÕES DE IMPLEMENTAÇÃO
-                        1. **Planejamento:** [Dicas para planejar a execução]
-                        2. **Recursos necessários:** [Recursos humanos e materiais]
-                        3. **Cronograma sugerido:** [Timeline para implementação]
-                        4. **Avaliação:** [Como avaliar o desempenho dos temas]
+                        RESUMO:
+                        - Total de temas: {numero_temas}
+                     
                         
-                        ## 🚀 PRÓXIMOS PASSOS
-                        [Ações imediatas para começar a trabalhar com este calendário]
-                        
-                        ---
-                        *Calendário gerado automaticamente com base no agente {agente['nome']}*
+                        TEMAS POR SEMANA:
                         """
                         
-                        # Gerar o calendário
-                        calendario_gerado = gerar_resposta_modelo(prompt_calendario, "Gemini")
+                        # Extrair apenas os temas principais
+                        linhas = calendario_gerado.split('\n')
+                        in_temas = False
+                        semana_atual = ""
                         
-                        # Armazenar na sessão
-                        st.session_state.calendario_gerado = calendario_gerado
-                        st.session_state.calendario_info = {
-                            'mes': mes_nome,
-                            'ano': ano,
-                            'agente': agente['nome'],
-                            'numero_temas': numero_temas,
-                            'formato': formato_temas
-                        }
+                        for linha in linhas:
+                            if "### 📋 SEMANA" in linha:
+                                semana_atual = linha.replace("### 📋 ", "").strip()
+                                calendario_simples += f"\n\n{semana_atual}\n"
+                                calendario_simples += "-" * len(semana_atual) + "\n"
+                                in_temas = True
+                            elif in_temas and ("**Segunda:**" in linha or "**Terça:**" in linha or 
+                                             "**Quarta:**" in linha or "**Quinta:**" in linha or 
+                                             "**Sexta:**" in linha or "**Sábado:**" in linha or 
+                                             "**Domingo:**" in linha):
+                                tema = linha.split("**")[2].strip() if len(linha.split("**")) > 2 else linha
+                                calendario_simples += f"• {tema}\n"
+                            elif "### 🎨 TEMAS DESTAQUE" in linha:
+                                break
                         
-                        # Exibir resultado
-                        st.success("✅ Calendário gerado com sucesso!")
-                        st.markdown("---")
-                        
-                        # Exibir em expanders para melhor organização
-                        with st.expander("📅 VISUALIZAR CALENDÁRIO COMPLETO", expanded=True):
-                            st.markdown(calendario_gerado)
-                        
-                        # Estatísticas
-                        col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
-                        with col_stat1:
-                            st.metric("Mês", mes_nome)
-                        with col_stat2:
-                            st.metric("Temas Gerados", numero_temas)
-                        with col_stat3:
-                            st.metric("Agente", agente['nome'][:10] + "...")
-                        with col_stat4:
-                            st.metric("Formato", formato_temas)
-                        
-                        # Opções de download
-                        st.markdown("---")
-                        st.subheader("📥 Exportar Calendário")
-                        
-                        col_dl1, col_dl2, col_dl3 = st.columns(3)
-                        
-                        with col_dl1:
-                            st.download_button(
-                                "💾 Baixar como TXT",
-                                data=calendario_gerado,
-                                file_name=f"calendario_temas_{mes_nome}_{ano}_{agente['nome'][:20]}.txt",
-                                mime="text/plain",
-                                key="download_calendario_txt"
-                            )
-                        
-                        with col_dl2:
-                            # Formatar como CSV simples
-                            linhas = calendario_gerado.split('\n')
-                            temas_csv = "Dia;Tema;Ideias;Formatos;Hashtags\n"
-                            dia_atual = ""
-                            
-                            for linha in linhas:
-                                if "**Segunda:**" in linha or "**Terça:**" in linha or "**Quarta:**" in linha or "**Quinta:**" in linha or "**Sexta:**" in linha or "**Sábado:**" in linha or "**Domingo:**" in linha:
-                                    dia_atual = linha.split("**")[1].replace(":", "")
-                                    tema = linha.split("**")[2].strip() if len(linha.split("**")) > 2 else ""
-                                    temas_csv += f"{dia_atual};{tema};;;\n"
-                                elif "**Ideias:**" in linha and dia_atual:
-                                    ideias = linha.replace("**Ideias:**", "").strip()
-                                    temas_csv = temas_csv[:-1] + f";{ideias};;\n"
-                                elif "**Formatos sugeridos:**" in linha and dia_atual:
-                                    formatos = linha.replace("**Formatos sugeridos:**", "").strip()
-                                    temas_csv = temas_csv[:-1] + f";;{formatos};\n"
-                                elif "**Hashtags sugeridas:**" in linha and dia_atual:
-                                    hashtags = linha.replace("**Hashtags sugeridas:**", "").strip()
-                                    temas_csv = temas_csv[:-1] + f";;;{hashtags}\n"
-                                    dia_atual = ""
-                            
-                            st.download_button(
-                                "📊 Baixar como CSV",
-                                data=temas_csv,
-                                file_name=f"calendario_temas_{mes_nome}_{ano}_csv.csv",
-                                mime="text/csv",
-                                key="download_calendario_csv"
-                            )
-                        
-                        with col_dl3:
-                            # Criar versão simplificada para impressão
-                            calendario_simples = f"""
-                            CALENDÁRIO DE TEMAS - {mes_nome.upper()} {ano}
-                            ============================================
-                            
-                            Agente: {agente['nome']}
-                            Gerado em: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                            
-                            RESUMO:
-                            - Total de temas: {numero_temas}
-                         
-                            
-                            TEMAS POR SEMANA:
-                            """
-                            
-                            # Extrair apenas os temas principais
-                            linhas = calendario_gerado.split('\n')
-                            in_temas = False
-                            semana_atual = ""
-                            
-                            for linha in linhas:
-                                if "### 📋 SEMANA" in linha:
-                                    semana_atual = linha.replace("### 📋 ", "").strip()
-                                    calendario_simples += f"\n\n{semana_atual}\n"
-                                    calendario_simples += "-" * len(semana_atual) + "\n"
-                                    in_temas = True
-                                elif in_temas and ("**Segunda:**" in linha or "**Terça:**" in linha or 
-                                                 "**Quarta:**" in linha or "**Quinta:**" in linha or 
-                                                 "**Sexta:**" in linha or "**Sábado:**" in linha or 
-                                                 "**Domingo:**" in linha):
-                                    tema = linha.split("**")[2].strip() if len(linha.split("**")) > 2 else linha
-                                    calendario_simples += f"• {tema}\n"
-                                elif "### 🎨 TEMAS DESTAQUE" in linha:
-                                    break
-                            
-                            st.download_button(
-                                "🖨️ Versão para Impressão",
-                                data=calendario_simples,
-                                file_name=f"calendario_simples_{mes_nome}_{ano}.txt",
-                                mime="text/plain",
-                                key="download_calendario_simple"
-                            )
-                        
-                        # Sugestões de uso
-                        with st.expander("💡 Como usar este calendário", expanded=False):
-                            st.markdown("""
-                            **🎯 Implementação prática:**
-                            1. **Revisão:** Analise cada tema e adapte à sua realidade
-                            2. **Priorização:** Escolha os temas mais relevantes para começar
-                            3. **Planejamento:** Atribua datas específicas para cada tema
-                            4. **Recursos:** Identifique recursos necessários para cada tema
-                            5. **Execução:** Crie conteúdo baseado nos temas e ideias fornecidas
-                            
-                            **📊 Acompanhamento:**
-                            - Marque temas executados
-                            - Registre engajamento por tema
-                            - Avalie quais temas performaram melhor
-                            - Use os insights para ajustar o próximo calendário
-                            
-                            **🔄 Iteração:**
-                            - Revise mensalmente o desempenho
-                            - Ajuste a direção com base nos resultados
-                            - Compartilhe aprendizados com a equipe
-                            """)
+                        st.download_button(
+                            "🖨️ Versão para Impressão",
+                            data=calendario_simples,
+                            file_name=f"calendario_simples_{mes_nome}_{ano}.txt",
+                            mime="text/plain",
+                            key="download_calendario_simple"
+                        )
                     
-                    except Exception as e:
-                        st.error(f"❌ Erro ao gerar calendário: {str(e)}")
+                    # Sugestões de uso
+                    with st.expander("💡 Como usar este calendário", expanded=False):
+                        st.markdown("""
+                        **🎯 Implementação prática:**
+                        1. **Revisão:** Analise cada tema e adapte à sua realidade
+                        2. **Priorização:** Escolha os temas mais relevantes para começar
+                        3. **Planejamento:** Atribua datas específicas para cada tema
+                        4. **Recursos:** Identifique recursos necessários para cada tema
+                        5. **Execução:** Crie conteúdo baseado nos temas e ideias fornecidas
+                        
+                        **📊 Acompanhamento:**
+                        - Marque temas executados
+                        - Registre engajamento por tema
+                        - Avalie quais temas performaram melhor
+                        - Use os insights para ajustar o próximo calendário
+                        
+                        **🔄 Iteração:**
+                        - Revise mensalmente o desempenho
+                        - Ajuste a direção com base nos resultados
+                        - Compartilhe aprendizados com a equipe
+                        """)
+                
+                except Exception as e:
+                    st.error(f"❌ Erro ao gerar calendário: {str(e)}")
+        
+        # Mostrar calendário salvo se existir
+        elif 'calendario_gerado' in st.session_state:
+            st.markdown("---")
+            st.subheader("📅 Calendário Gerado Anteriormente")
             
-            # Mostrar calendário salvo se existir
-            elif 'calendario_gerado' in st.session_state:
-                st.markdown("---")
-                st.subheader("📅 Calendário Gerado Anteriormente")
-                
-                info = st.session_state.calendario_info
-                st.info(f"**Mês:** {info['mes']} {info['ano']} | **Agente:** {info['agente']} | **Temas:** {info['numero_temas']}")
-                
-                with st.expander("👀 Visualizar Calendário Salvo", expanded=False):
-                    st.markdown(st.session_state.calendario_gerado)
-                
-                col_act1, col_act2 = st.columns(2)
-                with col_act1:
-                    if st.button("🔄 Gerar Novo Calendário", key="novo_calendario"):
-                        if 'calendario_gerado' in st.session_state:
-                            del st.session_state.calendario_gerado
-                        if 'calendario_info' in st.session_state:
-                            del st.session_state.calendario_info
-                        st.rerun()
-                
-                with col_act2:
-                    st.download_button(
-                        "📥 Baixar Calendário",
-                        data=st.session_state.calendario_gerado,
-                        file_name=f"calendario_{info['mes']}_{info['ano']}.txt",
-                        mime="text/plain",
-                        key="download_existente"
-                    )
+            info = st.session_state.calendario_info
+            st.info(f"**Mês:** {info['mes']} {info['ano']} | **Agente:** {info['agente']} | **Temas:** {info['numero_temas']}")
             
-            else:
-                # Instruções iniciais
-                st.markdown("---")
-                with st.expander("📋 Como funciona o Gerador de Calendário", expanded=True):
-                    st.markdown("""
-                    **🎯 Objetivo:**
-                    Gerar um calendário mensal de temas para conteúdo baseado no contexto do seu agente selecionado.
-                    
-                    **🔧 Passos para uso:**
-                    1. **Configure o período:** Selecione o mês/ano desejado
-                    2. **Ajuste as configurações:** Número de temas, formato, intensidade
-                    3. **Forneça direcionamento:** Digite o que você quer específicamente
-                    4. **Clique em "Gerar Calendário":** O sistema criará um calendário personalizado
-                    
-                    **📊 O que você receberá:**
-                    - Calendário semanal com temas diários
-                    - Ideias de conteúdo para cada tema
-                    - Formatos sugeridos
-                    - Hashtags recomendadas
-                    - Temas destaque do mês
-                    - Plano de implementação
-                    
-                    **💡 Dicas para melhor direcionamento:**
-                    - Seja específico sobre o foco desejado
-                    - Mencione campanhas ou eventos especiais
-                    - Indique o público-alvo específico
-                    - Defina objetivos claros
-                    - Inclua palavras-chave importantes
-                    """)
+            with st.expander("👀 Visualizar Calendário Salvo", expanded=False):
+                st.markdown(st.session_state.calendario_gerado)
+            
+            col_act1, col_act2 = st.columns(2)
+            with col_act1:
+                if st.button("🔄 Gerar Novo Calendário", key="novo_calendario"):
+                    if 'calendario_gerado' in st.session_state:
+                        del st.session_state.calendario_gerado
+                    if 'calendario_info' in st.session_state:
+                        del st.session_state.calendario_info
+                    st.rerun()
+            
+            with col_act2:
+                st.download_button(
+                    "📥 Baixar Calendário",
+                    data=st.session_state.calendario_gerado,
+                    file_name=f"calendario_{info['mes']}_{info['ano']}.txt",
+                    mime="text/plain",
+                    key="download_existente"
+                )
+        
+        else:
+            # Instruções iniciais
+            st.markdown("---")
+            with st.expander("📋 Como funciona o Gerador de Calendário", expanded=True):
+                st.markdown("""
+                **🎯 Objetivo:**
+                Gerar um calendário mensal de temas para conteúdo baseado no contexto do seu agente selecionado.
+                
+                **🔧 Passos para uso:**
+                1. **Configure o período:** Selecione o mês/ano desejado
+                2. **Ajuste as configurações:** Número de temas, formato, intensidade
+                3. **Forneça direcionamento:** Digite o que você quer específicamente
+                4. **Clique em "Gerar Calendário":** O sistema criará um calendário personalizado
+                
+                **📊 O que você receberá:**
+                - Calendário semanal com temas diários
+                - Ideias de conteúdo para cada tema
+                - Formatos sugeridos
+                - Hashtags recomendadas
+                - Temas destaque do mês
+                - Plano de implementação
+                
+                **💡 Dicas para melhor direcionamento:**
+                - Seja específico sobre o foco desejado
+                - Mencione campanhas ou eventos especiais
+                - Indique o público-alvo específico
+                - Defina objetivos claros
+                - Inclua palavras-chave importantes
+                """)
 
 # --- NOVA ABA: INSIGHTS DE RESULTADOS ---
 if "📊 Insights de Resultados" in tab_mapping:
