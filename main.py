@@ -1013,7 +1013,9 @@ abas_base = [
     "✅ Validação Unificada",
     "✨ Geração de Conteúdo",
     "📝 Revisão Ortográfica",
-    "Monitoramento de Redes"
+    "Monitoramento de Redes",
+    "📅 Calendário de Temas",
+    
 ]
 
 if is_syn_agent(agente_selecionado['nome']):
@@ -6678,6 +6680,1077 @@ Forneça uma análise detalhada baseada no conteúdo dessas URLs."""
 def transcrever_audio_video(arquivo, tipo):
     """Função placeholder para transcrição de áudio/vídeo"""
     return f"Transcrição do {tipo} {arquivo.name} - Esta funcionalidade requer configuração adicional de APIs de transcrição."
+
+
+# --- NOVA ABA: CALENDÁRIO DE TEMAS ---
+if "📅 Calendário de Temas" in tab_mapping:
+    with tab_mapping["📅 Calendário de Temas"]:
+        st.header("📅 Gerador de Calendário Mensal de Temas")
+        st.markdown("Crie um calendário de temas mensal baseado no contexto do agente selecionado e suas especificações.")
+        
+        if not st.session_state.agente_selecionado:
+            st.info("Selecione um agente primeiro na aba de Chat para usar seu contexto na geração do calendário.")
+        else:
+            agente = st.session_state.agente_selecionado
+            st.success(f"🤖 Agente selecionado: **{agente['nome']}**")
+            
+            # Layout em colunas
+            col_config, col_prev = st.columns([1, 1])
+            
+            with col_config:
+                # Informações básicas
+                st.subheader("⚙️ Configurações do Calendário")
+                
+                mes_ano = st.date_input(
+                    "Mês/Ano para o calendário:",
+                    value=datetime.datetime.now(),
+                    format="MM/YYYY",
+                    key="calendario_mes_ano"
+                )
+                
+                numero_temas = st.slider(
+                    "Número de temas para o mês:",
+                    min_value=4,
+                    max_value=31,
+                    value=12,
+                    help="Quantos temas diferentes você quer gerar para o mês",
+                    key="cal_numero_temas"
+                )
+                
+         
+                
+      
+                
+                incluir_dias_semana = st.checkbox(
+                    "Incluir dias da semana específicos",
+                    value=True,
+                    help="Distribuir temas por dias da semana específicos",
+                    key="cal_dias_semana"
+                )
+                
+                incluir_feriados_eventos = st.checkbox(
+                    "Incluir feriados e eventos relevantes",
+                    value=True,
+                    help="Considerar feriados e eventos do período",
+                    key="cal_feriados"
+                )
+                
+                segmentos_calendario = st.multiselect(
+                    "Segmentos do agente a considerar:",
+                    options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
+                    default=st.session_state.get('segmentos_selecionados', ["base_conhecimento"]),
+                    help="Quais bases de conhecimento do agente usar para gerar os temas",
+                    key="cal_segmentos"
+                )
+            
+            with col_prev:
+                st.subheader("🎯 Direcionamento do Usuário")
+                
+                direcionamento_usuario = st.text_area(
+                    "Forneça direcionamento específico para os temas:",
+                    height=200,
+                    placeholder="""Exemplos:
+- Foco em lançamento de novos produtos
+- Temas educacionais sobre práticas sustentáveis
+- Conteúdo técnico para produtores rurais
+- Campanhas sazonais para o período
+- Tendências do setor para este mês
+- Problemas específicos do público-alvo
+- Conteúdo para engajamento em redes sociais""",
+                    help="Quanto mais específico, mais direcionados serão os temas gerados",
+                    key="cal_direcionamento"
+                )
+                
+                palavras_chave_cal = st.text_input(
+                    "Palavras-chave importantes (opcional):",
+                    placeholder="separadas por vírgula",
+                    help="Palavras-chave que devem ser consideradas nos temas",
+                    key="cal_palavras_chave"
+                )
+                
+        
+            
+            # Botão para gerar calendário
+            if st.button("📅 Gerar Calendário de Temas", type="primary", use_container_width=True, key="gerar_calendario_btn"):
+                with st.spinner("🔄 Analisando contexto e gerando calendário de temas..."):
+                    try:
+                        # Construir contexto do agente
+                        contexto_agente = ""
+                        if segmentos_calendario:
+                            if "system_prompt" in segmentos_calendario and agente.get('system_prompt'):
+                                contexto_agente += f"### INSTRUÇÕES DO SISTEMA ###\n{agente['system_prompt']}\n\n"
+                            
+                            if "base_conhecimento" in segmentos_calendario and agente.get('base_conhecimento'):
+                                contexto_agente += f"### BASE DE CONHECIMENTO ###\n{agente['base_conhecimento']}\n\n"
+                            
+                            if "comments" in segmentos_calendario and agente.get('comments'):
+                                contexto_agente += f"### COMENTÁRIOS DO CLIENTE ###\n{agente['comments']}\n\n"
+                            
+                            if "planejamento" in segmentos_calendario and agente.get('planejamento'):
+                                contexto_agente += f"### PLANEJAMENTO ###\n{agente['planejamento']}\n\n"
+                        
+                        # Construir prompt para geração do calendário
+                        mes_nome = mes_ano.strftime("%B").capitalize()
+                        ano = mes_ano.year
+                        
+                        prompt_calendario = f"""
+                        ## TAREFA: GERAR CALENDÁRIO MENSAL DE TEMAS
+                        
+                        **CONTEXTO DO AGENTE:**
+                        {contexto_agente}
+                        
+                        **PERÍODO:** {mes_nome} de {ano}
+                 
+                        **INTENSIDADE:** {intensidade_temas}
+                        **NÚMERO DE TEMAS:** {numero_temas}
+                        
+                        **DIRECIONAMENTO DO USUÁRIO:**
+                        {direcionamento_usuario}
+                        
+                        **CONFIGURAÇÕES ADICIONAIS:**
+                        - Palavras-chave: {palavras_chave_cal if palavras_chave_cal else "Não especificadas"}
+              
+                        - Incluir dias da semana: {incluir_dias_semana}
+                        - Incluir feriados/eventos: {incluir_feriados_eventos}
+                        
+                        ## INSTRUÇÕES DETALHADAS:
+                        
+                        1. **BASE TEMÁTICA:** Use o contexto do agente como base para todos os temas
+                        2. **RELEVÂNCIA:** Os temas devem ser relevantes para o período ({mes_nome})
+                        3. **VARIEDADE:** Crie temas variados cobrindo diferentes aspectos do contexto
+                        4. **PRATICIDADE:** Cada tema deve ser acionável e útil para criação de conteúdo
+                        5. **ALINHAMENTO:** Todos os temas devem se alinhar com as diretrizes do agente
+                        6. **ORIGINALIDADE:** Evite temas genéricos - personalize com base no contexto
+                        
+                        ## FORMATO DE SAIDA OBRIGATÓRIO:
+                        
+                        # 📅 CALENDÁRIO DE TEMAS - {mes_nome.upper()} {ano}
+                        
+                        ## 🎯 CONTEXTO GERAL
+                        [Breve introdução explicando a abordagem temática do mês]
+                        
+                        ## 📊 RESUMO DO MÊS
+                        - **Foco principal:** [Tema central do mês]
+                        - **Público-alvo:** {publico_alvo_cal if publico_alvo_cal else "Público do agente"}
+                        - **Objetivos:** [2-3 objetivos principais]
+                        
+                        ## 🗓️ CALENDÁRIO SEMANAL DETALHADO
+                        
+                        """
+                        
+                        # Adicionar estrutura de semanas
+                        semanas_mes = 4  # Aproximadamente
+                        temas_por_semana = max(1, numero_temas // semanas_mes)
+                        
+                        for semana in range(1, semanas_mes + 1):
+                            prompt_calendario += f"""
+                        ### 📋 SEMANA {semana} (Temas {((semana-1)*temas_por_semana)+1} a {min(semana*temas_por_semana, numero_temas)})
+                        
+                        """
+                        
+                            for dia in range(1, 8):  # 7 dias
+                                if incluir_dias_semana:
+                                    dias_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
+                                    dia_nome = dias_semana[dia-1]
+                                    prompt_calendario += f"**{dia_nome}:** "
+                                
+                                prompt_calendario += f"[Tema específico relacionado ao contexto do agente]\n"
+                                prompt_calendario += f"**Ideias:** [2-3 ideias de conteúdo para este tema]\n"
+                                prompt_calendario += f"**Formatos sugeridos:** [Formatos ideais para este tema]\n"
+                                prompt_calendario += f"**Hashtags sugeridas:** [Hashtags relevantes]\n\n"
+                        
+                        prompt_calendario += f"""
+                        ## 🎨 TEMAS DESTAQUE DO MÊS
+                        
+                        ### 🥇 TEMA PRINCIPAL
+                        **Título:** [Título do tema principal]
+                        **Descrição:** [Descrição detalhada]
+                        **Objetivo:** [Objetivo específico]
+                        **Métricas de sucesso:** [Como medir o sucesso]
+                        
+                        ### 🥈 TEMAS SECUNDÁRIOS
+                        1. **Tema 1:** [Título] - [Breve descrição]
+                        2. **Tema 2:** [Título] - [Breve descrição]
+                        3. **Tema 3:** [Título] - [Breve descrição]
+                        
+                        ## 🔗 INTEGRAÇÃO COM CONTEÚDO EXISTENTE
+                        [Como esses temas se conectam com conteúdo anterior/futuro]
+                        
+                        ## 📈 RECOMENDAÇÕES DE IMPLEMENTAÇÃO
+                        1. **Planejamento:** [Dicas para planejar a execução]
+                        2. **Recursos necessários:** [Recursos humanos e materiais]
+                        3. **Cronograma sugerido:** [Timeline para implementação]
+                        4. **Avaliação:** [Como avaliar o desempenho dos temas]
+                        
+                        ## 🚀 PRÓXIMOS PASSOS
+                        [Ações imediatas para começar a trabalhar com este calendário]
+                        
+                        ---
+                        *Calendário gerado automaticamente com base no agente {agente['nome']}*
+                        """
+                        
+                        # Gerar o calendário
+                        calendario_gerado = gerar_resposta_modelo(prompt_calendario, "Gemini")
+                        
+                        # Armazenar na sessão
+                        st.session_state.calendario_gerado = calendario_gerado
+                        st.session_state.calendario_info = {
+                            'mes': mes_nome,
+                            'ano': ano,
+                            'agente': agente['nome'],
+                            'numero_temas': numero_temas,
+                            'formato': formato_temas
+                        }
+                        
+                        # Exibir resultado
+                        st.success("✅ Calendário gerado com sucesso!")
+                        st.markdown("---")
+                        
+                        # Exibir em expanders para melhor organização
+                        with st.expander("📅 VISUALIZAR CALENDÁRIO COMPLETO", expanded=True):
+                            st.markdown(calendario_gerado)
+                        
+                        # Estatísticas
+                        col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+                        with col_stat1:
+                            st.metric("Mês", mes_nome)
+                        with col_stat2:
+                            st.metric("Temas Gerados", numero_temas)
+                        with col_stat3:
+                            st.metric("Agente", agente['nome'][:10] + "...")
+                        with col_stat4:
+                            st.metric("Formato", formato_temas)
+                        
+                        # Opções de download
+                        st.markdown("---")
+                        st.subheader("📥 Exportar Calendário")
+                        
+                        col_dl1, col_dl2, col_dl3 = st.columns(3)
+                        
+                        with col_dl1:
+                            st.download_button(
+                                "💾 Baixar como TXT",
+                                data=calendario_gerado,
+                                file_name=f"calendario_temas_{mes_nome}_{ano}_{agente['nome'][:20]}.txt",
+                                mime="text/plain",
+                                key="download_calendario_txt"
+                            )
+                        
+                        with col_dl2:
+                            # Formatar como CSV simples
+                            linhas = calendario_gerado.split('\n')
+                            temas_csv = "Dia;Tema;Ideias;Formatos;Hashtags\n"
+                            dia_atual = ""
+                            
+                            for linha in linhas:
+                                if "**Segunda:**" in linha or "**Terça:**" in linha or "**Quarta:**" in linha or "**Quinta:**" in linha or "**Sexta:**" in linha or "**Sábado:**" in linha or "**Domingo:**" in linha:
+                                    dia_atual = linha.split("**")[1].replace(":", "")
+                                    tema = linha.split("**")[2].strip() if len(linha.split("**")) > 2 else ""
+                                    temas_csv += f"{dia_atual};{tema};;;\n"
+                                elif "**Ideias:**" in linha and dia_atual:
+                                    ideias = linha.replace("**Ideias:**", "").strip()
+                                    temas_csv = temas_csv[:-1] + f";{ideias};;\n"
+                                elif "**Formatos sugeridos:**" in linha and dia_atual:
+                                    formatos = linha.replace("**Formatos sugeridos:**", "").strip()
+                                    temas_csv = temas_csv[:-1] + f";;{formatos};\n"
+                                elif "**Hashtags sugeridas:**" in linha and dia_atual:
+                                    hashtags = linha.replace("**Hashtags sugeridas:**", "").strip()
+                                    temas_csv = temas_csv[:-1] + f";;;{hashtags}\n"
+                                    dia_atual = ""
+                            
+                            st.download_button(
+                                "📊 Baixar como CSV",
+                                data=temas_csv,
+                                file_name=f"calendario_temas_{mes_nome}_{ano}_csv.csv",
+                                mime="text/csv",
+                                key="download_calendario_csv"
+                            )
+                        
+                        with col_dl3:
+                            # Criar versão simplificada para impressão
+                            calendario_simples = f"""
+                            CALENDÁRIO DE TEMAS - {mes_nome.upper()} {ano}
+                            ============================================
+                            
+                            Agente: {agente['nome']}
+                            Gerado em: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+                            
+                            RESUMO:
+                            - Total de temas: {numero_temas}
+                         
+                            
+                            TEMAS POR SEMANA:
+                            """
+                            
+                            # Extrair apenas os temas principais
+                            linhas = calendario_gerado.split('\n')
+                            in_temas = False
+                            semana_atual = ""
+                            
+                            for linha in linhas:
+                                if "### 📋 SEMANA" in linha:
+                                    semana_atual = linha.replace("### 📋 ", "").strip()
+                                    calendario_simples += f"\n\n{semana_atual}\n"
+                                    calendario_simples += "-" * len(semana_atual) + "\n"
+                                    in_temas = True
+                                elif in_temas and ("**Segunda:**" in linha or "**Terça:**" in linha or 
+                                                 "**Quarta:**" in linha or "**Quinta:**" in linha or 
+                                                 "**Sexta:**" in linha or "**Sábado:**" in linha or 
+                                                 "**Domingo:**" in linha):
+                                    tema = linha.split("**")[2].strip() if len(linha.split("**")) > 2 else linha
+                                    calendario_simples += f"• {tema}\n"
+                                elif "### 🎨 TEMAS DESTAQUE" in linha:
+                                    break
+                            
+                            st.download_button(
+                                "🖨️ Versão para Impressão",
+                                data=calendario_simples,
+                                file_name=f"calendario_simples_{mes_nome}_{ano}.txt",
+                                mime="text/plain",
+                                key="download_calendario_simple"
+                            )
+                        
+                        # Sugestões de uso
+                        with st.expander("💡 Como usar este calendário", expanded=False):
+                            st.markdown("""
+                            **🎯 Implementação prática:**
+                            1. **Revisão:** Analise cada tema e adapte à sua realidade
+                            2. **Priorização:** Escolha os temas mais relevantes para começar
+                            3. **Planejamento:** Atribua datas específicas para cada tema
+                            4. **Recursos:** Identifique recursos necessários para cada tema
+                            5. **Execução:** Crie conteúdo baseado nos temas e ideias fornecidas
+                            
+                            **📊 Acompanhamento:**
+                            - Marque temas executados
+                            - Registre engajamento por tema
+                            - Avalie quais temas performaram melhor
+                            - Use os insights para ajustar o próximo calendário
+                            
+                            **🔄 Iteração:**
+                            - Revise mensalmente o desempenho
+                            - Ajuste a direção com base nos resultados
+                            - Compartilhe aprendizados com a equipe
+                            """)
+                    
+                    except Exception as e:
+                        st.error(f"❌ Erro ao gerar calendário: {str(e)}")
+            
+            # Mostrar calendário salvo se existir
+            elif 'calendario_gerado' in st.session_state:
+                st.markdown("---")
+                st.subheader("📅 Calendário Gerado Anteriormente")
+                
+                info = st.session_state.calendario_info
+                st.info(f"**Mês:** {info['mes']} {info['ano']} | **Agente:** {info['agente']} | **Temas:** {info['numero_temas']}")
+                
+                with st.expander("👀 Visualizar Calendário Salvo", expanded=False):
+                    st.markdown(st.session_state.calendario_gerado)
+                
+                col_act1, col_act2 = st.columns(2)
+                with col_act1:
+                    if st.button("🔄 Gerar Novo Calendário", key="novo_calendario"):
+                        if 'calendario_gerado' in st.session_state:
+                            del st.session_state.calendario_gerado
+                        if 'calendario_info' in st.session_state:
+                            del st.session_state.calendario_info
+                        st.rerun()
+                
+                with col_act2:
+                    st.download_button(
+                        "📥 Baixar Calendário",
+                        data=st.session_state.calendario_gerado,
+                        file_name=f"calendario_{info['mes']}_{info['ano']}.txt",
+                        mime="text/plain",
+                        key="download_existente"
+                    )
+            
+            else:
+                # Instruções iniciais
+                st.markdown("---")
+                with st.expander("📋 Como funciona o Gerador de Calendário", expanded=True):
+                    st.markdown("""
+                    **🎯 Objetivo:**
+                    Gerar um calendário mensal de temas para conteúdo baseado no contexto do seu agente selecionado.
+                    
+                    **🔧 Passos para uso:**
+                    1. **Configure o período:** Selecione o mês/ano desejado
+                    2. **Ajuste as configurações:** Número de temas, formato, intensidade
+                    3. **Forneça direcionamento:** Digite o que você quer específicamente
+                    4. **Clique em "Gerar Calendário":** O sistema criará um calendário personalizado
+                    
+                    **📊 O que você receberá:**
+                    - Calendário semanal com temas diários
+                    - Ideias de conteúdo para cada tema
+                    - Formatos sugeridos
+                    - Hashtags recomendadas
+                    - Temas destaque do mês
+                    - Plano de implementação
+                    
+                    **💡 Dicas para melhor direcionamento:**
+                    - Seja específico sobre o foco desejado
+                    - Mencione campanhas ou eventos especiais
+                    - Indique o público-alvo específico
+                    - Defina objetivos claros
+                    - Inclua palavras-chave importantes
+                    """)
+
+# --- NOVA ABA: INSIGHTS DE RESULTADOS ---
+if "📊 Insights de Resultados" in tab_mapping:
+    with tab_mapping["📊 Insights de Resultados"]:
+        st.header("📊 Gerador de Insights de Resultados")
+        st.markdown("Analise KPIs e métricas para gerar insights estratégicos, identificar red flags e recomendar ações.")
+        
+        if not st.session_state.agente_selecionado:
+            st.info("Selecione um agente primeiro na aba de Chat para usar seu contexto na análise.")
+        else:
+            agente = st.session_state.agente_selecionado
+            st.success(f"🤖 Agente selecionado: **{agente['nome']}**")
+            
+            # Layout principal
+            col_input, col_config = st.columns([2, 1])
+            
+            with col_input:
+                st.subheader("📈 Dados de KPIs e Métricas")
+                
+                periodo_analise = st.selectbox(
+                    "Período de análise:",
+                    ["Última semana", "Último mês", "Último trimestre", "Último semestre", "Último ano", "Personalizado"],
+                    key="insights_periodo"
+                )
+                
+                # Caixa de texto principal para dados de KPIs
+                dados_kpis = st.text_area(
+                    "Insira os dados de KPIs, métricas e informações de desempenho:",
+                    height=300,
+                    placeholder="""Formato sugerido (pode ser livre):
+
+📊 RESULTADOS - [Período]
+
+📈 MÉTRICAS PRINCIPAIS:
+- Alcance: 150.000 (+15% vs anterior)
+- Engajamento: 4.2% (-0.3pp)
+- Conversões: 1.200 (+8%)
+- Ticket médio: R$ 450 (-5%)
+- CAC: R$ 120 (+12%)
+
+🎯 OBJETIVOS:
+- Meta de alcance: 140.000 ✓
+- Meta de conversão: 1.100 ✓
+- Meta de CAC: R$ 100 ✗
+
+🔍 OBSERVAÇÕES:
+- Campanha X performou 35% acima da média
+- Canal Y teve queda de 20% no engajamento
+- Novos segmentos responderam bem
+- Problemas técnicos na semana 2
+
+💡 INFORMAÇÕES ADICIONAIS:
+- Investimento total: R$ 50.000
+- Público-alvo: Produtores rurais 25-45 anos
+- Campanhas ativas: 3 principais
+- Concorrência lançou novo produto""",
+                    help="Cole aqui todas as informações de desempenho que você tem disponível",
+                    key="dados_kpis_textarea"
+                )
+                
+                # Upload opcional de arquivos com dados
+                with st.expander("📎 Ou carregue arquivos com dados", expanded=False):
+                    arquivos_dados = st.file_uploader(
+                        "Arquivos com dados (CSV, TXT, PDF, Excel):",
+                        type=['csv', 'txt', 'pdf', 'xlsx', 'xls'],
+                        accept_multiple_files=True,
+                        help="Arquivos com dados brutos para análise",
+                        key="arquivos_insights"
+                    )
+                    
+                    if arquivos_dados:
+                        st.success(f"✅ {len(arquivos_dados)} arquivo(s) carregado(s)")
+                        for arquivo in arquivos_dados:
+                            st.write(f"📄 {arquivo.name} ({arquivo.size} bytes)")
+            
+            with col_config:
+                st.subheader("⚙️ Configurações da Análise")
+                
+                tipo_analise = st.multiselect(
+                    "Tipos de análise a incluir:",
+                    options=[
+                        "Análise de Tendências",
+                        "Comparativo Periódico", 
+                        "Análise de Correlação",
+                        "Identificação de Red Flags",
+                        "Benchmarking Competitivo",
+                        "Análise de ROI",
+                        "Previsão de Tendências",
+                        "Recomendações Estratégicas"
+                    ],
+                    default=[
+                        "Análise de Tendências",
+                        "Identificação de Red Flags", 
+                        "Recomendações Estratégicas"
+                    ],
+                    help="Selecione os tipos de análise que deseja",
+                    key="tipo_analise_select"
+                )
+                
+                profundidade_analise = st.select_slider(
+                    "Profundidade da análise:",
+                    options=["Superficial", "Moderada", "Detalhada", "Muito Detalhada", "Especializada"],
+                    value="Detalhada",
+                    help="Nível de detalhe da análise gerada",
+                    key="profundidade_analise"
+                )
+                
+                incluir_visualizacoes = st.checkbox(
+                    "Incluir sugestões de visualizações",
+                    value=True,
+                    help="Sugerir gráficos e visualizações para os dados",
+                    key="incluir_visualizacoes"
+                )
+                
+                foco_estrategico = st.selectbox(
+                    "Foco estratégico:",
+                    [
+                        "Crescimento", 
+                        "Retenção", 
+                        "Eficiência", 
+                        "Inovação",
+                        "Consolidação",
+                        "Expansão",
+                        "Otimização"
+                    ],
+                    help="Foco principal para as recomendações",
+                    key="foco_estrategico"
+                )
+                
+                segmentos_insights = st.multiselect(
+                    "Contexto do agente a considerar:",
+                    options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
+                    default=st.session_state.get('segmentos_selecionados', ["base_conhecimento"]),
+                    help="Quais bases de conhecimento do agente usar para contextualizar a análise",
+                    key="insights_segmentos"
+                )
+                
+                modelo_insights = st.selectbox(
+                    "Modelo para análise:",
+                    ["Gemini", "Claude", "OpenAI"],
+                    index=0,
+                    help="Modelo de IA para realizar a análise",
+                    key="modelo_insights_select"
+                )
+                
+                gerar_plano_acao = st.checkbox(
+                    "Gerar plano de ação detalhado",
+                    value=True,
+                    help="Incluir plano de ação específico baseado nos insights",
+                    key="gerar_plano_acao"
+                )
+            
+            # Área para contexto adicional
+            st.subheader("🎯 Contexto Adicional para Análise")
+            
+            col_context1, col_context2 = st.columns(2)
+            
+            with col_context1:
+                contexto_mercado = st.text_area(
+                    "Contexto de mercado/negócio:",
+                    height=150,
+                    placeholder="Ex: Concorrência intensificou campanhas...\nNovas regulamentações afetaram o setor...\nSazonalidade positiva no período...",
+                    help="Informações relevantes sobre o mercado",
+                    key="contexto_mercado"
+                )
+            
+            with col_context2:
+                restricoes_orcamento = st.text_area(
+                    "Restrições/orçamento:",
+                    height=150,
+                    placeholder="Ex: Orçamento limitado para Q4...\nRecursos humanos reduzidos...\nPrazos apertados para entregas...",
+                    help="Restrições a considerar nas recomendações",
+                    key="restricoes_orcamento"
+                )
+            
+            # Botão para gerar análise
+            if st.button("🔍 Gerar Análise de Insights", type="primary", use_container_width=True, key="gerar_insights_btn"):
+                if not dados_kpis.strip() and not arquivos_dados:
+                    st.warning("⚠️ Por favor, insira dados de KPIs ou carregue arquivos para análise.")
+                else:
+                    with st.spinner("📊 Analisando dados, cruzando informações e gerando insights..."):
+                        try:
+                            # Construir contexto do agente
+                            contexto_agente = ""
+                            if segmentos_insights:
+                                if "system_prompt" in segmentos_insights and agente.get('system_prompt'):
+                                    contexto_agente += f"### INSTRUÇÕES DO SISTEMA ###\n{agente['system_prompt']}\n\n"
+                                
+                                if "base_conhecimento" in segmentos_insights and agente.get('base_conhecimento'):
+                                    contexto_agente += f"### BASE DE CONHECIMENTO ###\n{agente['base_conhecimento']}\n\n"
+                                
+                                if "comments" in segmentos_insights and agente.get('comments'):
+                                    contexto_agente += f"### COMENTÁRIOS DO CLIENTE ###\n{agente['comments']}\n\n"
+                                
+                                if "planejamento" in segmentos_insights and agente.get('planejamento'):
+                                    contexto_agente += f"### PLANEJAMENTO ###\n{agente['planejamento']}\n\n"
+                            
+                            # Processar arquivos se existirem
+                            dados_arquivos = ""
+                            if arquivos_dados:
+                                dados_arquivos = "\n\n### DADOS DE ARQUIVOS CARREGADOS:\n"
+                                for arquivo in arquivos_dados:
+                                    try:
+                                        if arquivo.name.endswith('.csv'):
+                                            import pandas as pd
+                                            df = pd.read_csv(arquivo)
+                                            dados_arquivos += f"\n📊 {arquivo.name}:\n"
+                                            dados_arquivos += df.head().to_string() + "\n..."
+                                        elif arquivo.name.endswith('.txt'):
+                                            dados_arquivos += f"\n📄 {arquivo.name}:\n"
+                                            dados_arquivos += arquivo.read().decode('utf-8')[:1000] + "\n..."
+                                        else:
+                                            dados_arquivos += f"\n📎 {arquivo.name} - Tipo: {arquivo.type}\n"
+                                    except Exception as e:
+                                        dados_arquivos += f"\n❌ Erro ao processar {arquivo.name}: {str(e)[:100]}\n"
+                            
+                            # Construir prompt para análise
+                            data_atual = datetime.datetime.now().strftime("%d/%m/%Y")
+                            
+                            prompt_analise = f"""
+                            ## TAREFA: ANÁLISE ESTRATÉGICA DE RESULTADOS E KPIs
+                            
+                            **CONTEXTO DO AGENTE:**
+                            {contexto_agente}
+                            
+                            **PERÍODO DE ANÁLISE:** {periodo_analise}
+                            **DATA DA ANÁLISE:** {data_atual}
+                            **PROFUNDIDADE:** {profundidade_analise}
+                            **FOCO ESTRATÉGICO:** {foco_estrategico}
+                            
+                            **TIPOS DE ANÁLISE SOLICITADOS:**
+                            {chr(10).join([f"- {tipo}" for tipo in tipo_analise])}
+                            
+                            **DADOS DE KPIs FORNECIDOS:**
+                            {dados_kpis}
+                            
+                            {dados_arquivos}
+                            
+                            **CONTEXTO ADICIONAL DE MERCADO:**
+                            {contexto_mercado if contexto_mercado.strip() else "Não fornecido"}
+                            
+                            **RESTRIÇÕES/ORÇAMENTO:**
+                            {restricoes_orcamento if restricoes_orcamento.strip() else "Não informado"}
+                            
+                            ## INSTRUÇÕES DETALHADAS PARA ANÁLISE:
+                            
+                            1. **ANÁLISE COMPREENSIVA:** Analise todos os dados fornecidos de forma holística
+                            2. **CRUZAMENTO DE INFORMAÇÕES:** Relacione diferentes métricas e dados
+                            3. **IDENTIFICAÇÃO DE PADRÕES:** Encontre tendências, sazonalidades e anomalias
+                            4. **BENCHMARKING:** Compare com melhores práticas do setor
+                            5. **ANÁLISE DE CAUSA RAIZ:** Para problemas identificados, investigue causas profundas
+                            6. **CONTEXTUALIZAÇÃO:** Relacione tudo com o contexto do agente e mercado
+                            7. **PRAGMATISMO:** Foque em insights acionáveis e práticos
+                            8. **PRIORIZAÇÃO:** Destaque o que é mais importante e urgente
+                            
+                            ## FORMATO DE RELATÓRIO OBRIGATÓRIO:
+                            
+                            # 📊 RELATÓRIO DE INSIGHTS ESTRATÉGICOS
+                            
+                            ## 🎯 RESUMO EXECUTIVO
+                            **Período:** {periodo_analise}
+                            **Data da análise:** {data_atual}
+                            
+                            ### 🏆 PRINCIPAIS CONQUISTAS
+                            [Liste os principais sucessos e metas alcançadas]
+                            
+                            ### 🚨 PRINCIPAIS ALERTAS
+                            [Liste os principais problemas e preocupações]
+                            
+                            ### 📈 TENDÊNCIA GERAL
+                            [Avaliação geral da performance: Positiva/Neutra/Negativa]
+                            
+                            ## 📋 ANÁLISE DETALHADA POR ÁREA
+                            
+                            """
+                            
+                            # Adicionar seções baseadas nos tipos de análise selecionados
+                            if "Análise de Tendências" in tipo_analise:
+                                prompt_analise += """
+                            ### 📈 ANÁLISE DE TENDÊNCIAS
+                            **Padrões Identificados:**
+                            [Descreva tendências de crescimento, declínio ou estabilidade]
+                            
+                            **Sazonalidade:**
+                            [Padrões sazonais identificados]
+                            
+                            **Projeções:**
+                            [Para onde as tendências apontam se mantido o curso atual]
+                            """
+                            
+                            if "Comparativo Periódico" in tipo_analise:
+                                prompt_analise += """
+                            ### ⚖️ COMPARATIVO PERIÓDICO
+                            **Evolução vs. Período Anterior:**
+                            [Métricas que melhoraram/pioraram/mantiveram]
+                            
+                            **Cumprimento de Metas:**
+                            [Quais metas foram alcançadas/superadas/frustradas]
+                            
+                            **Desempenho Relativo:**
+                            [Performance em relação a expectativas]
+                            """
+                            
+                            if "Análise de Correlação" in tipo_analise:
+                                prompt_analise += """
+                            ### 🔗 ANÁLISE DE CORRELAÇÃO
+                            **Relações Identificadas:**
+                            [Quais métricas se movem juntas ou em direções opostas]
+                            
+                            **Causa e Efeito:**
+                            [Possíveis relações causais entre ações e resultados]
+                            
+                            **Interdependências:**
+                            [Como diferentes áreas afetam umas às outras]
+                            """
+                            
+                            if "Identificação de Red Flags" in tipo_analise:
+                                prompt_analise += """
+                            ### 🚩 RED FLAGS IDENTIFICADAS
+                            **Problemas Críticos:**
+                            1. [Problema 1] - [Impacto] - [Urgência]
+                            2. [Problema 2] - [Impacto] - [Urgência]
+                            3. [Problema 3] - [Impacto] - [Urgência]
+                            
+                            **Sinais de Alerta:**
+                            [Indicadores que podem se tornar problemas]
+                            
+                            **Áreas de Risco:**
+                            [Setores/processos/métricas com maior vulnerabilidade]
+                            """
+                            
+                            if "Benchmarking Competitivo" in tipo_analise:
+                                prompt_analise += """
+                            ### 🏆 BENCHMARKING COMPETITIVO
+                            **Posicionamento Relativo:**
+                            [Como a performance se compara a concorrentes/padrões do setor]
+                            
+                            **Vantagens Competitivas:**
+                            [O que está funcionando melhor que a concorrência]
+                            
+                            **Oportunidades de Melhoria:**
+                            [Onde os concorrentes estão se saindo melhor]
+                            """
+                            
+                            if "Análise de ROI" in tipo_analise:
+                                prompt_analise += """
+                            ### 💰 ANÁLISE DE ROI
+                            **Eficiência de Investimento:**
+                            [Quais iniciativas deram melhor retorno]
+                            
+                            **Custos vs. Benefícios:**
+                            [Análise de eficiência por canal/iniciativa]
+                            
+                            **Oportunidades de Otimização:**
+                            [Onde cortar custos ou realocar recursos]
+                            """
+                            
+                            if "Previsão de Tendências" in tipo_analise:
+                                prompt_analise += """
+                            ### 🔮 PREVISÃO DE TENDÊNCIAS
+                            **Cenários Prováveis:**
+                            1. [Cenário otimista] - [Probabilidade]
+                            2. [Cenário base] - [Probabilidade]  
+                            3. [Cenário pessimista] - [Probabilidade]
+                            
+                            **Sinais a Monitorar:**
+                            [Indicadores que confirmarão ou negarão as previsões]
+                            
+                            **Pontos de Inflexão:**
+                            [Quando/mudanças podem ocorrer]
+                            """
+                            
+                            prompt_analise += f"""
+                            
+                            ## 🎯 INSIGHTS ESTRATÉGICOS
+                            
+                            ### 💡 INSIGHTS PRINCIPAIS
+                            1. **[Insight 1]** - [Descrição] - [Implicações]
+                            2. **[Insight 2]** - [Descrição] - [Implicações]
+                            3. **[Insight 3]** - [Descrição] - [Implicações]
+                            
+                            ### 🎪 OPORTUNIDADES IDENTIFICADAS
+                            [Lista de oportunidades com potencial de impacto]
+                            
+                            ### ⚠️ AMEAÇAS IDENTIFICADAS  
+                            [Lista de ameaças que requerem atenção]
+                            
+                            """
+                            
+                            if gerar_plano_acao:
+                                prompt_analise += """
+                            ## 🚀 PLANO DE AÇÃO RECOMENDADO
+                            
+                            ### 🎯 AÇÕES DE CURTO PRAZO (0-30 dias)
+                            **Prioridade ALTA:**
+                            1. [Ação] - [Responsável] - [Prazo] - [Recursos]
+                            2. [Ação] - [Responsável] - [Prazo] - [Recursos]
+                            
+                            **Prioridade MÉDIA:**
+                            1. [Ação] - [Responsável] - [Prazo] - [Recursos]
+                            
+                            ### 📈 AÇÕES DE MÉDIO PRAZO (30-90 dias)
+                            1. [Ação] - [Responsável] - [Prazo] - [Recursos]
+                            2. [Ação] - [Responsável] - [Prazo] - [Recursos]
+                            
+                            ### 🌟 AÇÕES DE LONGO PRAZO (90+ dias)
+                            1. [Ação] - [Responsável] - [Prazo] - [Recursos]
+                            
+                            ### 📊 MÉTRICAS DE SUCESSO
+                            [Como medir o sucesso das ações recomendadas]
+                            """
+                            
+                            if incluir_visualizacoes:
+                                prompt_analise += """
+                            ## 📊 SUGESTÕES DE VISUALIZAÇÃO
+                            
+                            ### 📈 GRÁFICOS RECOMENDADOS
+                            1. **[Tipo de gráfico]** - [Dados a visualizar] - [Objetivo]
+                            2. **[Tipo de gráfico]** - [Dados a visualizar] - [Objetivo]
+                            3. **[Tipo de gráfico]** - [Dados a visualizar] - [Objetivo]
+                            
+                            ### 🎨 DASHBOARDS SUGERIDOS
+                            [Sugestões de painéis para monitoramento contínuo]
+                            
+                            ### 🔢 MÉTRICAS-CHAVE PARA MONITORAR
+                            [Lista das métricas mais importantes para acompanhar]
+                            """
+                            
+                            prompt_analise += f"""
+                            
+                            ## 🧠 CONSIDERAÇÕES FINAIS
+                            
+                            ### ✅ CONCLUSÕES
+                            [Resumo das principais conclusões]
+                            
+                            ### ⚠️ LIMITAÇÕES DA ANÁLISE
+                            [O que não foi considerado/limitado pelos dados disponíveis]
+                            
+                            ### 🔄 PRÓXIMOS PASSOS RECOMENDADOS
+                            [Passos imediatos após esta análise]
+                            
+                            ---
+                            *Relatório gerado automaticamente com base no agente {agente['nome']}*
+                            *Modelo utilizado: {modelo_insights}*
+                            """
+                            
+                            # Gerar a análise
+                            insights_gerados = gerar_resposta_modelo(prompt_analise, modelo_insights)
+                            
+                            # Armazenar na sessão
+                            st.session_state.insights_gerados = insights_gerados
+                            st.session_state.insights_info = {
+                                'periodo': periodo_analise,
+                                'agente': agente['nome'],
+                                'data': data_atual,
+                                'tipos_analise': tipo_analise,
+                                'modelo': modelo_insights
+                            }
+                            
+                            # Exibir resultado
+                            st.success("✅ Análise de insights gerada com sucesso!")
+                            st.markdown("---")
+                            
+                            # Exibir em expanders para melhor organização
+                            with st.expander("📊 VISUALIZAR RELATÓRIO COMPLETO", expanded=True):
+                                st.markdown(insights_gerados)
+                            
+                            # Métricas rápidas
+                            col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
+                            with col_metric1:
+                                st.metric("Período", periodo_analise)
+                            with col_metric2:
+                                st.metric("Tipos de Análise", len(tipo_analise))
+                            with col_metric3:
+                                st.metric("Agente", agente['nome'][:10] + "...")
+                            with col_metric4:
+                                st.metric("Modelo", modelo_insights)
+                            
+                            # Análise de sentimento (simples)
+                            if "🚨" in insights_gerados or "RED FLAGS" in insights_gerados.upper():
+                                st.warning("⚠️ Foram identificadas red flags na análise")
+                            if "🏆" in insights_gerados or "CONQUISTAS" in insights_gerados.upper():
+                                st.success("✅ Foram identificadas conquistas importantes")
+                            
+                            # Opções de download
+                            st.markdown("---")
+                            st.subheader("📥 Exportar Análise")
+                            
+                            col_dl_ins1, col_dl_ins2, col_dl_ins3 = st.columns(3)
+                            
+                            with col_dl_ins1:
+                                st.download_button(
+                                    "💾 Baixar Relatório Completo",
+                                    data=insights_gerados,
+                                    file_name=f"insights_{periodo_analise.replace(' ', '_')}_{data_atual.replace('/', '_')}.txt",
+                                    mime="text/plain",
+                                    key="download_insights_full"
+                                )
+                            
+                            with col_dl_ins2:
+                                # Extrair apenas insights principais
+                                if "### 💡 INSIGHTS PRINCIPAIS" in insights_gerados:
+                                    start_idx = insights_gerados.find("### 💡 INSIGHTS PRINCIPAIS")
+                                    end_idx = insights_gerados.find("##", start_idx + 1)
+                                    insights_principais = insights_gerados[start_idx:end_idx] if end_idx != -1 else insights_gerados[start_idx:]
+                                    
+                                    st.download_button(
+                                        "🎯 Baixar Insights Principais",
+                                        data=insights_principais,
+                                        file_name=f"insights_principais_{periodo_analise.replace(' ', '_')}.txt",
+                                        mime="text/plain",
+                                        key="download_insights_key"
+                                    )
+                            
+                            with col_dl_ins3:
+                                # Extrair plano de ação se existir
+                                if "## 🚀 PLANO DE AÇÃO RECOMENDADO" in insights_gerados:
+                                    start_idx = insights_gerados.find("## 🚀 PLANO DE AÇÃO RECOMENDADO")
+                                    end_idx = insights_gerados.find("##", start_idx + 1)
+                                    plano_acao = insights_gerados[start_idx:end_idx] if end_idx != -1 else insights_gerados[start_idx:]
+                                    
+                                    st.download_button(
+                                        "🚀 Baixar Plano de Ação",
+                                        data=plano_acao,
+                                        file_name=f"plano_acao_{periodo_analise.replace(' ', '_')}.txt",
+                                        mime="text/plain",
+                                        key="download_plano_acao"
+                                    )
+                            
+                            # Sugestões de uso
+                            with st.expander("💡 Como usar esta análise", expanded=False):
+                                st.markdown("""
+                                **🎯 Implementação prática:**
+                                1. **Revisão em equipe:** Discuta os insights com stakeholders
+                                2. **Priorização:** Foque primeiro nas red flags e oportunidades
+                                3. **Atribuição:** Defina responsáveis para cada ação
+                                4. **Monitoramento:** Estabeleça sistema de acompanhamento
+                                5. **Revisão periódica:** Agende reavaliação dos insights
+                                
+                                **📊 Acompanhamento:**
+                                - Crie um sistema de tracking para as ações recomendadas
+                                - Estabeleça checkpoints para revisão do progresso
+                                - Ajuste o plano conforme novos dados surgirem
+                                - Documente lições aprendidas
+                                
+                                **🔄 Iteração:**
+                                - Use esta análise como linha de base
+                                - Compare com análises futuras para medir progresso
+                                - Refine o processo de coleta de dados com base nos gaps identificados
+                                - Compartilhe aprendizados entre áreas
+                                """)
+                            
+                            # Sugestão de próximos passos
+                            st.info("""
+                            **🔜 Próximos passos sugeridos:**
+                            1. Agendar reunião para discutir insights com a equipe
+                            2. Criar plano de ação detalhado baseado nas recomendações
+                            3. Definir métricas de acompanhamento para cada ação
+                            4. Estabelecer prazos e responsáveis
+                            5. Agendar próxima análise para daqui a 30 dias
+                            """)
+                        
+                        except Exception as e:
+                            st.error(f"❌ Erro ao gerar análise: {str(e)}")
+            
+            # Mostrar análise salva se existir
+            elif 'insights_gerados' in st.session_state:
+                st.markdown("---")
+                st.subheader("📊 Análise Gerada Anteriormente")
+                
+                info = st.session_state.insights_info
+                st.info(f"**Período:** {info['periodo']} | **Agente:** {info['agente']} | **Data:** {info['data']}")
+                
+                # Resumo rápido
+                if "### 🏆 PRINCIPAIS CONQUISTAS" in st.session_state.insights_gerados:
+                    start_idx = st.session_state.insights_gerados.find("### 🏆 PRINCIPAIS CONQUISTAS")
+                    end_idx = st.session_state.insights_gerados.find("###", start_idx + 1)
+                    if end_idx != -1:
+                        conquistas = st.session_state.insights_gerados[start_idx:end_idx]
+                        st.success(conquistas[:500] + "..." if len(conquistas) > 500 else conquistas)
+                
+                if "### 🚨 PRINCIPAIS ALERTAS" in st.session_state.insights_gerados:
+                    start_idx = st.session_state.insights_gerados.find("### 🚨 PRINCIPAIS ALERTAS")
+                    end_idx = st.session_state.insights_gerados.find("###", start_idx + 1)
+                    if end_idx != -1:
+                        alertas = st.session_state.insights_gerados[start_idx:end_idx]
+                        st.warning(alertas[:500] + "..." if len(alertas) > 500 else alertas)
+                
+                with st.expander("👀 Visualizar Análise Completa", expanded=False):
+                    st.markdown(st.session_state.insights_gerados)
+                
+                col_act_ins1, col_act_ins2, col_act_ins3 = st.columns(3)
+                with col_act_ins1:
+                    if st.button("🔄 Gerar Nova Análise", key="nova_analise"):
+                        if 'insights_gerados' in st.session_state:
+                            del st.session_state.insights_gerados
+                        if 'insights_info' in st.session_state:
+                            del st.session_state.insights_info
+                        st.rerun()
+                
+                with col_act_ins2:
+                    st.download_button(
+                        "📥 Baixar Análise",
+                        data=st.session_state.insights_gerados,
+                        file_name=f"insights_{info['periodo'].replace(' ', '_')}_{info['data'].replace('/', '_')}.txt",
+                        mime="text/plain",
+                        key="download_insights_existente"
+                    )
+                
+                with col_act_ins3:
+                    if st.button("📋 Extrair Plano de Ação", key="extrair_plano"):
+                        if "## 🚀 PLANO DE AÇÃO RECOMENDADO" in st.session_state.insights_gerados:
+                            start_idx = st.session_state.insights_gerados.find("## 🚀 PLANO DE AÇÃO RECOMENDADO")
+                            end_idx = st.session_state.insights_gerados.find("##", start_idx + 1)
+                            plano_acao = st.session_state.insights_gerados[start_idx:end_idx] if end_idx != -1 else st.session_state.insights_gerados[start_idx:]
+                            
+                            st.text_area("📋 Plano de Ação Extraído:", plano_acao, height=300)
+            
+            else:
+                # Instruções iniciais
+                st.markdown("---")
+                with st.expander("📋 Como funciona o Gerador de Insights", expanded=True):
+                    st.markdown("""
+                    **🎯 Objetivo:**
+                    Transformar dados brutos de KPIs em insights estratégicos acionáveis, identificando oportunidades, ameaças e recomendando ações.
+                    
+                    **🔧 Passos para uso:**
+                    1. **Insira os dados:** Cole informações de KPIs, métricas e resultados
+                    2. **Configure a análise:** Selecione tipos de análise e profundidade
+                    3. **Forneça contexto:** Adicione informações de mercado e restrições
+                    4. **Clique em "Gerar Análise":** O sistema criará um relatório estratégico
+                    
+                    **📊 O que você receberá:**
+                    - Resumo executivo com conquistas e alertas
+                    - Análise detalhada por tipo selecionado
+                    - Insights estratégicos principais
+                    - Identificação de red flags
+                    - Plano de ação recomendado
+                    - Sugestões de visualização
+                    
+                    **💡 Dicas para melhor análise:**
+                    - Inclua dados quantitativos (números, porcentagens)
+                    - Forneça contexto qualitativo (observações, comentários)
+                    - Seja específico sobre períodos e comparações
+                    - Mencione objetivos e metas estabelecidas
+                    - Inclua informações sobre investimentos e recursos
+                    
+                    **🔄 Tipos de análise disponíveis:**
+                    - **Tendências:** Padrões ao longo do tempo
+                    - **Comparativo:** Evolução vs. períodos anteriores
+                    - **Correlação:** Relações entre diferentes métricas
+                    - **Red Flags:** Problemas e riscos identificados
+                    - **Benchmarking:** Comparação com padrões do setor
+                    - **ROI:** Análise de retorno sobre investimento
+                    - **Previsões:** Projeções baseadas em tendências
+                    - **Recomendações:** Ações estratégicas sugeridas
+                    """)
+
 
 # --- Estilização ---
 st.markdown("""
