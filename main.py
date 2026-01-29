@@ -6684,7 +6684,6 @@ def transcrever_audio_video(arquivo, tipo):
 
 # --- NOVA ABA: CALENDÁRIO DE TEMAS ---
 
-
 with tab_mapping["📅 Calendário de Temas"]:
     st.header("📅 Gerador de Calendário Mensal de Temas")
     st.markdown("Crie um calendário de temas mensal baseado no contexto do agente selecionado e suas especificações.")
@@ -6702,10 +6701,10 @@ with tab_mapping["📅 Calendário de Temas"]:
             # Informações básicas
             st.subheader("⚙️ Configurações do Calendário")
             
+            # CORREÇÃO: Formato correto para date_input
             mes_ano = st.date_input(
                 "Mês/Ano para o calendário:",
                 value=datetime.datetime.now(),
-                format="MM/YYYY",
                 key="calendario_mes_ano"
             )
             
@@ -6718,9 +6717,20 @@ with tab_mapping["📅 Calendário de Temas"]:
                 key="cal_numero_temas"
             )
             
-     
+            formato_temas = st.selectbox(
+                "Formato dos temas:",
+                ["Redes Sociais", "Blog Posts", "Newsletter", "Vídeos", "Multiplataforma", "Webinars"],
+                help="Tipo de conteúdo para os temas",
+                key="cal_formato_temas"
+            )
             
-  
+            intensidade_temas = st.select_slider(
+                "Intensidade dos temas:",
+                options=["Leve", "Moderada", "Intensa", "Muito Específica"],
+                value="Moderada",
+                help="Quão específicos e detalhados devem ser os temas",
+                key="cal_intensidade"
+            )
             
             incluir_dias_semana = st.checkbox(
                 "Incluir dias da semana específicos",
@@ -6769,7 +6779,19 @@ with tab_mapping["📅 Calendário de Temas"]:
                 key="cal_palavras_chave"
             )
             
-    
+            tom_voz_cal = st.selectbox(
+                "Tom de voz predominante:",
+                ["Profissional", "Descontraído", "Técnico", "Inspirador", "Persuasivo", "Educativo"],
+                help="Tom geral dos temas propostos",
+                key="cal_tom_voz"
+            )
+            
+            publico_alvo_cal = st.text_input(
+                "Público-alvo (opcional):",
+                placeholder="Ex: Produtores rurais, gerentes agrícolas, técnicos...",
+                help="Especificar o público-alvo para os temas",
+                key="cal_publico_alvo"
+            )
         
         # Botão para gerar calendário
         if st.button("📅 Gerar Calendário de Temas", type="primary", use_container_width=True, key="gerar_calendario_btn"):
@@ -6801,7 +6823,7 @@ with tab_mapping["📅 Calendário de Temas"]:
                     {contexto_agente}
                     
                     **PERÍODO:** {mes_nome} de {ano}
-             
+                    **FORMATO:** {formato_temas}
                     **INTENSIDADE:** {intensidade_temas}
                     **NÚMERO DE TEMAS:** {numero_temas}
                     
@@ -6810,7 +6832,8 @@ with tab_mapping["📅 Calendário de Temas"]:
                     
                     **CONFIGURAÇÕES ADICIONAIS:**
                     - Palavras-chave: {palavras_chave_cal if palavras_chave_cal else "Não especificadas"}
-          
+                    - Tom de voz: {tom_voz_cal}
+                    - Público-alvo: {publico_alvo_cal if publico_alvo_cal else "Público geral do agente"}
                     - Incluir dias da semana: {incluir_dias_semana}
                     - Incluir feriados/eventos: {incluir_feriados_eventos}
                     
@@ -6834,6 +6857,7 @@ with tab_mapping["📅 Calendário de Temas"]:
                     - **Foco principal:** [Tema central do mês]
                     - **Público-alvo:** {publico_alvo_cal if publico_alvo_cal else "Público do agente"}
                     - **Objetivos:** [2-3 objetivos principais]
+                    - **Tom predominante:** {tom_voz_cal}
                     
                     ## 🗓️ CALENDÁRIO SEMANAL DETALHADO
                     
@@ -6848,7 +6872,7 @@ with tab_mapping["📅 Calendário de Temas"]:
                     ### 📋 SEMANA {semana} (Temas {((semana-1)*temas_por_semana)+1} a {min(semana*temas_por_semana, numero_temas)})
                     
                     """
-                    
+                        
                         for dia in range(1, 8):  # 7 dias
                             if incluir_dias_semana:
                                 dias_semana = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
@@ -6978,7 +7002,9 @@ with tab_mapping["📅 Calendário de Temas"]:
                         
                         RESUMO:
                         - Total de temas: {numero_temas}
-                     
+                        - Formato principal: {formato_temas}
+                        - Tom de voz: {tom_voz_cal}
+                        - Intensidade: {intensidade_temas}
                         
                         TEMAS POR SEMANA:
                         """
@@ -7094,663 +7120,6 @@ with tab_mapping["📅 Calendário de Temas"]:
                 - Defina objetivos claros
                 - Inclua palavras-chave importantes
                 """)
-
-# --- NOVA ABA: INSIGHTS DE RESULTADOS ---
-if "📊 Insights de Resultados" in tab_mapping:
-    with tab_mapping["📊 Insights de Resultados"]:
-        st.header("📊 Gerador de Insights de Resultados")
-        st.markdown("Analise KPIs e métricas para gerar insights estratégicos, identificar red flags e recomendar ações.")
-        
-        if not st.session_state.agente_selecionado:
-            st.info("Selecione um agente primeiro na aba de Chat para usar seu contexto na análise.")
-        else:
-            agente = st.session_state.agente_selecionado
-            st.success(f"🤖 Agente selecionado: **{agente['nome']}**")
-            
-            # Layout principal
-            col_input, col_config = st.columns([2, 1])
-            
-            with col_input:
-                st.subheader("📈 Dados de KPIs e Métricas")
-                
-                periodo_analise = st.selectbox(
-                    "Período de análise:",
-                    ["Última semana", "Último mês", "Último trimestre", "Último semestre", "Último ano", "Personalizado"],
-                    key="insights_periodo"
-                )
-                
-                # Caixa de texto principal para dados de KPIs
-                dados_kpis = st.text_area(
-                    "Insira os dados de KPIs, métricas e informações de desempenho:",
-                    height=300,
-                    placeholder="""Formato sugerido (pode ser livre):
-
-📊 RESULTADOS - [Período]
-
-📈 MÉTRICAS PRINCIPAIS:
-- Alcance: 150.000 (+15% vs anterior)
-- Engajamento: 4.2% (-0.3pp)
-- Conversões: 1.200 (+8%)
-- Ticket médio: R$ 450 (-5%)
-- CAC: R$ 120 (+12%)
-
-🎯 OBJETIVOS:
-- Meta de alcance: 140.000 ✓
-- Meta de conversão: 1.100 ✓
-- Meta de CAC: R$ 100 ✗
-
-🔍 OBSERVAÇÕES:
-- Campanha X performou 35% acima da média
-- Canal Y teve queda de 20% no engajamento
-- Novos segmentos responderam bem
-- Problemas técnicos na semana 2
-
-💡 INFORMAÇÕES ADICIONAIS:
-- Investimento total: R$ 50.000
-- Público-alvo: Produtores rurais 25-45 anos
-- Campanhas ativas: 3 principais
-- Concorrência lançou novo produto""",
-                    help="Cole aqui todas as informações de desempenho que você tem disponível",
-                    key="dados_kpis_textarea"
-                )
-                
-                # Upload opcional de arquivos com dados
-                with st.expander("📎 Ou carregue arquivos com dados", expanded=False):
-                    arquivos_dados = st.file_uploader(
-                        "Arquivos com dados (CSV, TXT, PDF, Excel):",
-                        type=['csv', 'txt', 'pdf', 'xlsx', 'xls'],
-                        accept_multiple_files=True,
-                        help="Arquivos com dados brutos para análise",
-                        key="arquivos_insights"
-                    )
-                    
-                    if arquivos_dados:
-                        st.success(f"✅ {len(arquivos_dados)} arquivo(s) carregado(s)")
-                        for arquivo in arquivos_dados:
-                            st.write(f"📄 {arquivo.name} ({arquivo.size} bytes)")
-            
-            with col_config:
-                st.subheader("⚙️ Configurações da Análise")
-                
-                tipo_analise = st.multiselect(
-                    "Tipos de análise a incluir:",
-                    options=[
-                        "Análise de Tendências",
-                        "Comparativo Periódico", 
-                        "Análise de Correlação",
-                        "Identificação de Red Flags",
-                        "Benchmarking Competitivo",
-                        "Análise de ROI",
-                        "Previsão de Tendências",
-                        "Recomendações Estratégicas"
-                    ],
-                    default=[
-                        "Análise de Tendências",
-                        "Identificação de Red Flags", 
-                        "Recomendações Estratégicas"
-                    ],
-                    help="Selecione os tipos de análise que deseja",
-                    key="tipo_analise_select"
-                )
-                
-                profundidade_analise = st.select_slider(
-                    "Profundidade da análise:",
-                    options=["Superficial", "Moderada", "Detalhada", "Muito Detalhada", "Especializada"],
-                    value="Detalhada",
-                    help="Nível de detalhe da análise gerada",
-                    key="profundidade_analise"
-                )
-                
-                incluir_visualizacoes = st.checkbox(
-                    "Incluir sugestões de visualizações",
-                    value=True,
-                    help="Sugerir gráficos e visualizações para os dados",
-                    key="incluir_visualizacoes"
-                )
-                
-                foco_estrategico = st.selectbox(
-                    "Foco estratégico:",
-                    [
-                        "Crescimento", 
-                        "Retenção", 
-                        "Eficiência", 
-                        "Inovação",
-                        "Consolidação",
-                        "Expansão",
-                        "Otimização"
-                    ],
-                    help="Foco principal para as recomendações",
-                    key="foco_estrategico"
-                )
-                
-                segmentos_insights = st.multiselect(
-                    "Contexto do agente a considerar:",
-                    options=["system_prompt", "base_conhecimento", "comments", "planejamento"],
-                    default=st.session_state.get('segmentos_selecionados', ["base_conhecimento"]),
-                    help="Quais bases de conhecimento do agente usar para contextualizar a análise",
-                    key="insights_segmentos"
-                )
-                
-                modelo_insights = st.selectbox(
-                    "Modelo para análise:",
-                    ["Gemini", "Claude", "OpenAI"],
-                    index=0,
-                    help="Modelo de IA para realizar a análise",
-                    key="modelo_insights_select"
-                )
-                
-                gerar_plano_acao = st.checkbox(
-                    "Gerar plano de ação detalhado",
-                    value=True,
-                    help="Incluir plano de ação específico baseado nos insights",
-                    key="gerar_plano_acao"
-                )
-            
-            # Área para contexto adicional
-            st.subheader("🎯 Contexto Adicional para Análise")
-            
-            col_context1, col_context2 = st.columns(2)
-            
-            with col_context1:
-                contexto_mercado = st.text_area(
-                    "Contexto de mercado/negócio:",
-                    height=150,
-                    placeholder="Ex: Concorrência intensificou campanhas...\nNovas regulamentações afetaram o setor...\nSazonalidade positiva no período...",
-                    help="Informações relevantes sobre o mercado",
-                    key="contexto_mercado"
-                )
-            
-            with col_context2:
-                restricoes_orcamento = st.text_area(
-                    "Restrições/orçamento:",
-                    height=150,
-                    placeholder="Ex: Orçamento limitado para Q4...\nRecursos humanos reduzidos...\nPrazos apertados para entregas...",
-                    help="Restrições a considerar nas recomendações",
-                    key="restricoes_orcamento"
-                )
-            
-            # Botão para gerar análise
-            if st.button("🔍 Gerar Análise de Insights", type="primary", use_container_width=True, key="gerar_insights_btn"):
-                if not dados_kpis.strip() and not arquivos_dados:
-                    st.warning("⚠️ Por favor, insira dados de KPIs ou carregue arquivos para análise.")
-                else:
-                    with st.spinner("📊 Analisando dados, cruzando informações e gerando insights..."):
-                        try:
-                            # Construir contexto do agente
-                            contexto_agente = ""
-                            if segmentos_insights:
-                                if "system_prompt" in segmentos_insights and agente.get('system_prompt'):
-                                    contexto_agente += f"### INSTRUÇÕES DO SISTEMA ###\n{agente['system_prompt']}\n\n"
-                                
-                                if "base_conhecimento" in segmentos_insights and agente.get('base_conhecimento'):
-                                    contexto_agente += f"### BASE DE CONHECIMENTO ###\n{agente['base_conhecimento']}\n\n"
-                                
-                                if "comments" in segmentos_insights and agente.get('comments'):
-                                    contexto_agente += f"### COMENTÁRIOS DO CLIENTE ###\n{agente['comments']}\n\n"
-                                
-                                if "planejamento" in segmentos_insights and agente.get('planejamento'):
-                                    contexto_agente += f"### PLANEJAMENTO ###\n{agente['planejamento']}\n\n"
-                            
-                            # Processar arquivos se existirem
-                            dados_arquivos = ""
-                            if arquivos_dados:
-                                dados_arquivos = "\n\n### DADOS DE ARQUIVOS CARREGADOS:\n"
-                                for arquivo in arquivos_dados:
-                                    try:
-                                        if arquivo.name.endswith('.csv'):
-                                            import pandas as pd
-                                            df = pd.read_csv(arquivo)
-                                            dados_arquivos += f"\n📊 {arquivo.name}:\n"
-                                            dados_arquivos += df.head().to_string() + "\n..."
-                                        elif arquivo.name.endswith('.txt'):
-                                            dados_arquivos += f"\n📄 {arquivo.name}:\n"
-                                            dados_arquivos += arquivo.read().decode('utf-8')[:1000] + "\n..."
-                                        else:
-                                            dados_arquivos += f"\n📎 {arquivo.name} - Tipo: {arquivo.type}\n"
-                                    except Exception as e:
-                                        dados_arquivos += f"\n❌ Erro ao processar {arquivo.name}: {str(e)[:100]}\n"
-                            
-                            # Construir prompt para análise
-                            data_atual = datetime.datetime.now().strftime("%d/%m/%Y")
-                            
-                            prompt_analise = f"""
-                            ## TAREFA: ANÁLISE ESTRATÉGICA DE RESULTADOS E KPIs
-                            
-                            **CONTEXTO DO AGENTE:**
-                            {contexto_agente}
-                            
-                            **PERÍODO DE ANÁLISE:** {periodo_analise}
-                            **DATA DA ANÁLISE:** {data_atual}
-                            **PROFUNDIDADE:** {profundidade_analise}
-                            **FOCO ESTRATÉGICO:** {foco_estrategico}
-                            
-                            **TIPOS DE ANÁLISE SOLICITADOS:**
-                            {chr(10).join([f"- {tipo}" for tipo in tipo_analise])}
-                            
-                            **DADOS DE KPIs FORNECIDOS:**
-                            {dados_kpis}
-                            
-                            {dados_arquivos}
-                            
-                            **CONTEXTO ADICIONAL DE MERCADO:**
-                            {contexto_mercado if contexto_mercado.strip() else "Não fornecido"}
-                            
-                            **RESTRIÇÕES/ORÇAMENTO:**
-                            {restricoes_orcamento if restricoes_orcamento.strip() else "Não informado"}
-                            
-                            ## INSTRUÇÕES DETALHADAS PARA ANÁLISE:
-                            
-                            1. **ANÁLISE COMPREENSIVA:** Analise todos os dados fornecidos de forma holística
-                            2. **CRUZAMENTO DE INFORMAÇÕES:** Relacione diferentes métricas e dados
-                            3. **IDENTIFICAÇÃO DE PADRÕES:** Encontre tendências, sazonalidades e anomalias
-                            4. **BENCHMARKING:** Compare com melhores práticas do setor
-                            5. **ANÁLISE DE CAUSA RAIZ:** Para problemas identificados, investigue causas profundas
-                            6. **CONTEXTUALIZAÇÃO:** Relacione tudo com o contexto do agente e mercado
-                            7. **PRAGMATISMO:** Foque em insights acionáveis e práticos
-                            8. **PRIORIZAÇÃO:** Destaque o que é mais importante e urgente
-                            
-                            ## FORMATO DE RELATÓRIO OBRIGATÓRIO:
-                            
-                            # 📊 RELATÓRIO DE INSIGHTS ESTRATÉGICOS
-                            
-                            ## 🎯 RESUMO EXECUTIVO
-                            **Período:** {periodo_analise}
-                            **Data da análise:** {data_atual}
-                            
-                            ### 🏆 PRINCIPAIS CONQUISTAS
-                            [Liste os principais sucessos e metas alcançadas]
-                            
-                            ### 🚨 PRINCIPAIS ALERTAS
-                            [Liste os principais problemas e preocupações]
-                            
-                            ### 📈 TENDÊNCIA GERAL
-                            [Avaliação geral da performance: Positiva/Neutra/Negativa]
-                            
-                            ## 📋 ANÁLISE DETALHADA POR ÁREA
-                            
-                            """
-                            
-                            # Adicionar seções baseadas nos tipos de análise selecionados
-                            if "Análise de Tendências" in tipo_analise:
-                                prompt_analise += """
-                            ### 📈 ANÁLISE DE TENDÊNCIAS
-                            **Padrões Identificados:**
-                            [Descreva tendências de crescimento, declínio ou estabilidade]
-                            
-                            **Sazonalidade:**
-                            [Padrões sazonais identificados]
-                            
-                            **Projeções:**
-                            [Para onde as tendências apontam se mantido o curso atual]
-                            """
-                            
-                            if "Comparativo Periódico" in tipo_analise:
-                                prompt_analise += """
-                            ### ⚖️ COMPARATIVO PERIÓDICO
-                            **Evolução vs. Período Anterior:**
-                            [Métricas que melhoraram/pioraram/mantiveram]
-                            
-                            **Cumprimento de Metas:**
-                            [Quais metas foram alcançadas/superadas/frustradas]
-                            
-                            **Desempenho Relativo:**
-                            [Performance em relação a expectativas]
-                            """
-                            
-                            if "Análise de Correlação" in tipo_analise:
-                                prompt_analise += """
-                            ### 🔗 ANÁLISE DE CORRELAÇÃO
-                            **Relações Identificadas:**
-                            [Quais métricas se movem juntas ou em direções opostas]
-                            
-                            **Causa e Efeito:**
-                            [Possíveis relações causais entre ações e resultados]
-                            
-                            **Interdependências:**
-                            [Como diferentes áreas afetam umas às outras]
-                            """
-                            
-                            if "Identificação de Red Flags" in tipo_analise:
-                                prompt_analise += """
-                            ### 🚩 RED FLAGS IDENTIFICADAS
-                            **Problemas Críticos:**
-                            1. [Problema 1] - [Impacto] - [Urgência]
-                            2. [Problema 2] - [Impacto] - [Urgência]
-                            3. [Problema 3] - [Impacto] - [Urgência]
-                            
-                            **Sinais de Alerta:**
-                            [Indicadores que podem se tornar problemas]
-                            
-                            **Áreas de Risco:**
-                            [Setores/processos/métricas com maior vulnerabilidade]
-                            """
-                            
-                            if "Benchmarking Competitivo" in tipo_analise:
-                                prompt_analise += """
-                            ### 🏆 BENCHMARKING COMPETITIVO
-                            **Posicionamento Relativo:**
-                            [Como a performance se compara a concorrentes/padrões do setor]
-                            
-                            **Vantagens Competitivas:**
-                            [O que está funcionando melhor que a concorrência]
-                            
-                            **Oportunidades de Melhoria:**
-                            [Onde os concorrentes estão se saindo melhor]
-                            """
-                            
-                            if "Análise de ROI" in tipo_analise:
-                                prompt_analise += """
-                            ### 💰 ANÁLISE DE ROI
-                            **Eficiência de Investimento:**
-                            [Quais iniciativas deram melhor retorno]
-                            
-                            **Custos vs. Benefícios:**
-                            [Análise de eficiência por canal/iniciativa]
-                            
-                            **Oportunidades de Otimização:**
-                            [Onde cortar custos ou realocar recursos]
-                            """
-                            
-                            if "Previsão de Tendências" in tipo_analise:
-                                prompt_analise += """
-                            ### 🔮 PREVISÃO DE TENDÊNCIAS
-                            **Cenários Prováveis:**
-                            1. [Cenário otimista] - [Probabilidade]
-                            2. [Cenário base] - [Probabilidade]  
-                            3. [Cenário pessimista] - [Probabilidade]
-                            
-                            **Sinais a Monitorar:**
-                            [Indicadores que confirmarão ou negarão as previsões]
-                            
-                            **Pontos de Inflexão:**
-                            [Quando/mudanças podem ocorrer]
-                            """
-                            
-                            prompt_analise += f"""
-                            
-                            ## 🎯 INSIGHTS ESTRATÉGICOS
-                            
-                            ### 💡 INSIGHTS PRINCIPAIS
-                            1. **[Insight 1]** - [Descrição] - [Implicações]
-                            2. **[Insight 2]** - [Descrição] - [Implicações]
-                            3. **[Insight 3]** - [Descrição] - [Implicações]
-                            
-                            ### 🎪 OPORTUNIDADES IDENTIFICADAS
-                            [Lista de oportunidades com potencial de impacto]
-                            
-                            ### ⚠️ AMEAÇAS IDENTIFICADAS  
-                            [Lista de ameaças que requerem atenção]
-                            
-                            """
-                            
-                            if gerar_plano_acao:
-                                prompt_analise += """
-                            ## 🚀 PLANO DE AÇÃO RECOMENDADO
-                            
-                            ### 🎯 AÇÕES DE CURTO PRAZO (0-30 dias)
-                            **Prioridade ALTA:**
-                            1. [Ação] - [Responsável] - [Prazo] - [Recursos]
-                            2. [Ação] - [Responsável] - [Prazo] - [Recursos]
-                            
-                            **Prioridade MÉDIA:**
-                            1. [Ação] - [Responsável] - [Prazo] - [Recursos]
-                            
-                            ### 📈 AÇÕES DE MÉDIO PRAZO (30-90 dias)
-                            1. [Ação] - [Responsável] - [Prazo] - [Recursos]
-                            2. [Ação] - [Responsável] - [Prazo] - [Recursos]
-                            
-                            ### 🌟 AÇÕES DE LONGO PRAZO (90+ dias)
-                            1. [Ação] - [Responsável] - [Prazo] - [Recursos]
-                            
-                            ### 📊 MÉTRICAS DE SUCESSO
-                            [Como medir o sucesso das ações recomendadas]
-                            """
-                            
-                            if incluir_visualizacoes:
-                                prompt_analise += """
-                            ## 📊 SUGESTÕES DE VISUALIZAÇÃO
-                            
-                            ### 📈 GRÁFICOS RECOMENDADOS
-                            1. **[Tipo de gráfico]** - [Dados a visualizar] - [Objetivo]
-                            2. **[Tipo de gráfico]** - [Dados a visualizar] - [Objetivo]
-                            3. **[Tipo de gráfico]** - [Dados a visualizar] - [Objetivo]
-                            
-                            ### 🎨 DASHBOARDS SUGERIDOS
-                            [Sugestões de painéis para monitoramento contínuo]
-                            
-                            ### 🔢 MÉTRICAS-CHAVE PARA MONITORAR
-                            [Lista das métricas mais importantes para acompanhar]
-                            """
-                            
-                            prompt_analise += f"""
-                            
-                            ## 🧠 CONSIDERAÇÕES FINAIS
-                            
-                            ### ✅ CONCLUSÕES
-                            [Resumo das principais conclusões]
-                            
-                            ### ⚠️ LIMITAÇÕES DA ANÁLISE
-                            [O que não foi considerado/limitado pelos dados disponíveis]
-                            
-                            ### 🔄 PRÓXIMOS PASSOS RECOMENDADOS
-                            [Passos imediatos após esta análise]
-                            
-                            ---
-                            *Relatório gerado automaticamente com base no agente {agente['nome']}*
-                            *Modelo utilizado: {modelo_insights}*
-                            """
-                            
-                            # Gerar a análise
-                            insights_gerados = gerar_resposta_modelo(prompt_analise, modelo_insights)
-                            
-                            # Armazenar na sessão
-                            st.session_state.insights_gerados = insights_gerados
-                            st.session_state.insights_info = {
-                                'periodo': periodo_analise,
-                                'agente': agente['nome'],
-                                'data': data_atual,
-                                'tipos_analise': tipo_analise,
-                                'modelo': modelo_insights
-                            }
-                            
-                            # Exibir resultado
-                            st.success("✅ Análise de insights gerada com sucesso!")
-                            st.markdown("---")
-                            
-                            # Exibir em expanders para melhor organização
-                            with st.expander("📊 VISUALIZAR RELATÓRIO COMPLETO", expanded=True):
-                                st.markdown(insights_gerados)
-                            
-                            # Métricas rápidas
-                            col_metric1, col_metric2, col_metric3, col_metric4 = st.columns(4)
-                            with col_metric1:
-                                st.metric("Período", periodo_analise)
-                            with col_metric2:
-                                st.metric("Tipos de Análise", len(tipo_analise))
-                            with col_metric3:
-                                st.metric("Agente", agente['nome'][:10] + "...")
-                            with col_metric4:
-                                st.metric("Modelo", modelo_insights)
-                            
-                            # Análise de sentimento (simples)
-                            if "🚨" in insights_gerados or "RED FLAGS" in insights_gerados.upper():
-                                st.warning("⚠️ Foram identificadas red flags na análise")
-                            if "🏆" in insights_gerados or "CONQUISTAS" in insights_gerados.upper():
-                                st.success("✅ Foram identificadas conquistas importantes")
-                            
-                            # Opções de download
-                            st.markdown("---")
-                            st.subheader("📥 Exportar Análise")
-                            
-                            col_dl_ins1, col_dl_ins2, col_dl_ins3 = st.columns(3)
-                            
-                            with col_dl_ins1:
-                                st.download_button(
-                                    "💾 Baixar Relatório Completo",
-                                    data=insights_gerados,
-                                    file_name=f"insights_{periodo_analise.replace(' ', '_')}_{data_atual.replace('/', '_')}.txt",
-                                    mime="text/plain",
-                                    key="download_insights_full"
-                                )
-                            
-                            with col_dl_ins2:
-                                # Extrair apenas insights principais
-                                if "### 💡 INSIGHTS PRINCIPAIS" in insights_gerados:
-                                    start_idx = insights_gerados.find("### 💡 INSIGHTS PRINCIPAIS")
-                                    end_idx = insights_gerados.find("##", start_idx + 1)
-                                    insights_principais = insights_gerados[start_idx:end_idx] if end_idx != -1 else insights_gerados[start_idx:]
-                                    
-                                    st.download_button(
-                                        "🎯 Baixar Insights Principais",
-                                        data=insights_principais,
-                                        file_name=f"insights_principais_{periodo_analise.replace(' ', '_')}.txt",
-                                        mime="text/plain",
-                                        key="download_insights_key"
-                                    )
-                            
-                            with col_dl_ins3:
-                                # Extrair plano de ação se existir
-                                if "## 🚀 PLANO DE AÇÃO RECOMENDADO" in insights_gerados:
-                                    start_idx = insights_gerados.find("## 🚀 PLANO DE AÇÃO RECOMENDADO")
-                                    end_idx = insights_gerados.find("##", start_idx + 1)
-                                    plano_acao = insights_gerados[start_idx:end_idx] if end_idx != -1 else insights_gerados[start_idx:]
-                                    
-                                    st.download_button(
-                                        "🚀 Baixar Plano de Ação",
-                                        data=plano_acao,
-                                        file_name=f"plano_acao_{periodo_analise.replace(' ', '_')}.txt",
-                                        mime="text/plain",
-                                        key="download_plano_acao"
-                                    )
-                            
-                            # Sugestões de uso
-                            with st.expander("💡 Como usar esta análise", expanded=False):
-                                st.markdown("""
-                                **🎯 Implementação prática:**
-                                1. **Revisão em equipe:** Discuta os insights com stakeholders
-                                2. **Priorização:** Foque primeiro nas red flags e oportunidades
-                                3. **Atribuição:** Defina responsáveis para cada ação
-                                4. **Monitoramento:** Estabeleça sistema de acompanhamento
-                                5. **Revisão periódica:** Agende reavaliação dos insights
-                                
-                                **📊 Acompanhamento:**
-                                - Crie um sistema de tracking para as ações recomendadas
-                                - Estabeleça checkpoints para revisão do progresso
-                                - Ajuste o plano conforme novos dados surgirem
-                                - Documente lições aprendidas
-                                
-                                **🔄 Iteração:**
-                                - Use esta análise como linha de base
-                                - Compare com análises futuras para medir progresso
-                                - Refine o processo de coleta de dados com base nos gaps identificados
-                                - Compartilhe aprendizados entre áreas
-                                """)
-                            
-                            # Sugestão de próximos passos
-                            st.info("""
-                            **🔜 Próximos passos sugeridos:**
-                            1. Agendar reunião para discutir insights com a equipe
-                            2. Criar plano de ação detalhado baseado nas recomendações
-                            3. Definir métricas de acompanhamento para cada ação
-                            4. Estabelecer prazos e responsáveis
-                            5. Agendar próxima análise para daqui a 30 dias
-                            """)
-                        
-                        except Exception as e:
-                            st.error(f"❌ Erro ao gerar análise: {str(e)}")
-            
-            # Mostrar análise salva se existir
-            elif 'insights_gerados' in st.session_state:
-                st.markdown("---")
-                st.subheader("📊 Análise Gerada Anteriormente")
-                
-                info = st.session_state.insights_info
-                st.info(f"**Período:** {info['periodo']} | **Agente:** {info['agente']} | **Data:** {info['data']}")
-                
-                # Resumo rápido
-                if "### 🏆 PRINCIPAIS CONQUISTAS" in st.session_state.insights_gerados:
-                    start_idx = st.session_state.insights_gerados.find("### 🏆 PRINCIPAIS CONQUISTAS")
-                    end_idx = st.session_state.insights_gerados.find("###", start_idx + 1)
-                    if end_idx != -1:
-                        conquistas = st.session_state.insights_gerados[start_idx:end_idx]
-                        st.success(conquistas[:500] + "..." if len(conquistas) > 500 else conquistas)
-                
-                if "### 🚨 PRINCIPAIS ALERTAS" in st.session_state.insights_gerados:
-                    start_idx = st.session_state.insights_gerados.find("### 🚨 PRINCIPAIS ALERTAS")
-                    end_idx = st.session_state.insights_gerados.find("###", start_idx + 1)
-                    if end_idx != -1:
-                        alertas = st.session_state.insights_gerados[start_idx:end_idx]
-                        st.warning(alertas[:500] + "..." if len(alertas) > 500 else alertas)
-                
-                with st.expander("👀 Visualizar Análise Completa", expanded=False):
-                    st.markdown(st.session_state.insights_gerados)
-                
-                col_act_ins1, col_act_ins2, col_act_ins3 = st.columns(3)
-                with col_act_ins1:
-                    if st.button("🔄 Gerar Nova Análise", key="nova_analise"):
-                        if 'insights_gerados' in st.session_state:
-                            del st.session_state.insights_gerados
-                        if 'insights_info' in st.session_state:
-                            del st.session_state.insights_info
-                        st.rerun()
-                
-                with col_act_ins2:
-                    st.download_button(
-                        "📥 Baixar Análise",
-                        data=st.session_state.insights_gerados,
-                        file_name=f"insights_{info['periodo'].replace(' ', '_')}_{info['data'].replace('/', '_')}.txt",
-                        mime="text/plain",
-                        key="download_insights_existente"
-                    )
-                
-                with col_act_ins3:
-                    if st.button("📋 Extrair Plano de Ação", key="extrair_plano"):
-                        if "## 🚀 PLANO DE AÇÃO RECOMENDADO" in st.session_state.insights_gerados:
-                            start_idx = st.session_state.insights_gerados.find("## 🚀 PLANO DE AÇÃO RECOMENDADO")
-                            end_idx = st.session_state.insights_gerados.find("##", start_idx + 1)
-                            plano_acao = st.session_state.insights_gerados[start_idx:end_idx] if end_idx != -1 else st.session_state.insights_gerados[start_idx:]
-                            
-                            st.text_area("📋 Plano de Ação Extraído:", plano_acao, height=300)
-            
-            else:
-                # Instruções iniciais
-                st.markdown("---")
-                with st.expander("📋 Como funciona o Gerador de Insights", expanded=True):
-                    st.markdown("""
-                    **🎯 Objetivo:**
-                    Transformar dados brutos de KPIs em insights estratégicos acionáveis, identificando oportunidades, ameaças e recomendando ações.
-                    
-                    **🔧 Passos para uso:**
-                    1. **Insira os dados:** Cole informações de KPIs, métricas e resultados
-                    2. **Configure a análise:** Selecione tipos de análise e profundidade
-                    3. **Forneça contexto:** Adicione informações de mercado e restrições
-                    4. **Clique em "Gerar Análise":** O sistema criará um relatório estratégico
-                    
-                    **📊 O que você receberá:**
-                    - Resumo executivo com conquistas e alertas
-                    - Análise detalhada por tipo selecionado
-                    - Insights estratégicos principais
-                    - Identificação de red flags
-                    - Plano de ação recomendado
-                    - Sugestões de visualização
-                    
-                    **💡 Dicas para melhor análise:**
-                    - Inclua dados quantitativos (números, porcentagens)
-                    - Forneça contexto qualitativo (observações, comentários)
-                    - Seja específico sobre períodos e comparações
-                    - Mencione objetivos e metas estabelecidas
-                    - Inclua informações sobre investimentos e recursos
-                    
-                    **🔄 Tipos de análise disponíveis:**
-                    - **Tendências:** Padrões ao longo do tempo
-                    - **Comparativo:** Evolução vs. períodos anteriores
-                    - **Correlação:** Relações entre diferentes métricas
-                    - **Red Flags:** Problemas e riscos identificados
-                    - **Benchmarking:** Comparação com padrões do setor
-                    - **ROI:** Análise de retorno sobre investimento
-                    - **Previsões:** Projeções baseadas em tendências
-                    - **Recomendações:** Ações estratégicas sugeridas
-                    """)
 
 
 # --- Estilização ---
