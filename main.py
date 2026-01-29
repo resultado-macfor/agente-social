@@ -6683,8 +6683,9 @@ def transcrever_audio_video(arquivo, tipo):
 
 
 # --- NOVA ABA: CALENDÁRIO DE TEMAS ---
-if "📅 Calendário de Temas" in tab_mapping:
-    with tab_mapping["📅 Calendário de Temas"]:
+
+
+with tab_mapping["📅 Calendário de Temas"]:
         st.header("📅 Gerador de Calendário Mensal de Temas")
         st.markdown("Crie um calendário de temas mensal baseado no contexto do agente selecionado e suas especificações.")
         
