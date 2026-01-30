@@ -342,7 +342,7 @@ users_db = {
 
 
 # Conexão MongoDB
-client = MongoClient("mongodb+srv://gustavoromao3345:RqWFPNOJQfInAW1N@cluster0.5iilj.mongodb.net/auto_doc?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE&tlsAllowInvalidCertificates=true")
+client = MongoClient(mongo_uri)
 db = client['agentes_personalizados']
 collection_agentes = db['agentes']
 collection_conversas = db['conversas']
@@ -4920,7 +4920,7 @@ with tab_mapping["✨ Geração de Conteúdo"]:
     
     # Conexão com MongoDB para briefings
     try:
-        client2 = MongoClient("mongodb+srv://gustavoromao3345:RqWFPNOJQfInAW1N@cluster0.5iilj.mongodb.net/auto_doc?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE&tlsAllowInvalidCertificates=true")
+        client2 = MongoClient(mongo_uri)
         db_briefings = client2['briefings_Broto_Tecnologia']
         collection_briefings = db_briefings['briefings']
         mongo_connected_conteudo = True
