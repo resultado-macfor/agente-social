@@ -63,6 +63,14 @@ else:
     st.warning("OPENAI_API_KEY não encontrada nas variáveis de ambiente")
     openai_client = None
 
+
+senha_admin = os.getenv('SENHA_ADMIN')
+
+
+senha_syn = os.getenv('SENHA_SYN')
+senha_sme = os.getenv('SENHA_SME')
+senha_ent = os.getenv('SENHA_ENT')
+
 import os
 import PyPDF2
 import pdfplumber
@@ -321,11 +329,17 @@ def check_hashes(password, hashed_text):
 # Dados de usuário (em produção, isso deve vir de um banco de dados seguro)
 users_db = {
     "admin": {
-        "password": make_hashes("senha1234"),
+        "password": make_hashes(senha_admin),
         "squad": "admin",
         "nome": "Administrador"
     }
 }
+
+
+
+
+
+
 
 # Conexão MongoDB
 client = MongoClient("mongodb+srv://gustavoromao3345:RqWFPNOJQfInAW1N@cluster0.5iilj.mongodb.net/auto_doc?retryWrites=true&w=majority&ssl=true&ssl_cert_reqs=CERT_NONE&tlsAllowInvalidCertificates=true")
