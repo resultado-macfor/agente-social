@@ -70,6 +70,7 @@ senha_admin = os.getenv('SENHA_ADMIN')
 senha_syn = os.getenv('SENHA_SYN')
 senha_sme = os.getenv('SENHA_SME')
 senha_ent = os.getenv('SENHA_ENT')
+mongo_uri = os.getenv('MONGO_URI')
 
 import os
 import PyPDF2
