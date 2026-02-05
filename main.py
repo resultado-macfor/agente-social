@@ -4398,8 +4398,19 @@ with tab_mapping["✅ Validação Unificada"]:
                 help="Selecione uma ou mais imagens para validação. Se for um carrossel, selecione todas as imagens do carrossel."
             )
             
-            # NOVO: Checkbox para indicar que é um carrossel
+            # Função para extrair número do nome do arquivo para ordenação
+            def extract_number_from_filename(filename):
+                import re
+                numbers = re.findall(r'\d+', filename)
+                return int(numbers[0]) if numbers else 0
+            
+            # Organizar imagens de forma inteligente
             if uploaded_images:
+                # Ordenar imagens primeiro numericamente, depois alfabeticamente
+                uploaded_images_sorted = sorted(uploaded_images, 
+                                               key=lambda x: (extract_number_from_filename(x.name), x.name.lower()))
+                
+                # NOVO: Checkbox para indicar que é um carrossel
                 col_carrossel1, col_carrossel2 = st.columns([3, 1])
                 with col_carrossel1:
                     is_carrossel = st.checkbox(
@@ -4409,8 +4420,13 @@ with tab_mapping["✅ Validação Unificada"]:
                     )
                 
                 with col_carrossel2:
-                    if is_carrossel and len(uploaded_images) > 1:
-                        st.success(f"🎯 {len(uploaded_images)} imagens serão analisadas como carrossel")
+                    if is_carrossel and len(uploaded_images_sorted) > 1:
+                        st.success(f"🎯 {len(uploaded_images_sorted)} imagens serão analisadas como carrossel")
+                        
+                        # Mostrar ordem das imagens
+                        with st.expander("📋 Ver ordem das imagens no carrossel", expanded=False):
+                            for idx, img in enumerate(uploaded_images_sorted):
+                                st.write(f"{idx+1}. {img.name}")
             
             # Configurações de análise de imagem
             with st.expander("⚙️ Configurações de Análise de Imagem"):
@@ -4426,6 +4442,12 @@ with tab_mapping["✅ Validação Unificada"]:
                     st.markdown("### 📱 Configurações Específicas para Carrossel")
                     
                     if is_carrossel:
+                        analise_storytelling = st.checkbox(
+                            "Analisar storytelling do carrossel",
+                            value=True,
+                            help="Avaliar a progressão narrativa e storytelling entre as imagens do carrossel"
+                        )
+                        
                         analise_consistencia_carrossel = st.checkbox(
                             "Analisar consistência entre imagens do carrossel",
                             value=True,
@@ -4459,29 +4481,35 @@ with tab_mapping["✅ Validação Unificada"]:
                 )
             
             if uploaded_images:
-                st.success(f"✅ {len(uploaded_images)} imagem(ns) carregada(s)")
+                # Ordenar imagens de forma inteligente
+                uploaded_images_sorted = sorted(uploaded_images, 
+                                               key=lambda x: (extract_number_from_filename(x.name), x.name.lower()))
+                
+                st.success(f"✅ {len(uploaded_images_sorted)} imagem(ns) carregada(s)")
                 
                 # Se for carrossel, mostrar informações específicas
-                if is_carrossel and len(uploaded_images) > 1:
+                if is_carrossel and len(uploaded_images_sorted) > 1:
                     st.info(f"""
                     **📱 ANÁLISE ESPECIAL DE CARROSSEL ATIVADA**
                     
-                    As {len(uploaded_images)} imagens serão analisadas como um carrossel, considerando:
-                    - Consistência visual entre as imagens
-                    - Sequência lógica das mensagens
-                    - Harmonia de cores e elementos
-                    - Narrativa visual completa
+                    As {len(uploaded_images_sorted)} imagens serão analisadas como um carrossel, considerando:
+                    - **Storytelling**: Progressão narrativa entre as imagens
+                    - **Consistência visual**: Harmonia entre cores e elementos
+                    - **Narrativa visual**: História coerente em sequência
+                    - **Contexto acumulado**: Análise com conhecimento das imagens anteriores
+                    
+                    **Ordem do carrossel:** {", ".join([img.name for img in uploaded_images_sorted])}
                     """)
                     
-                    # Mostrar preview em grid do carrossel
-                    st.subheader("👁️ Preview do Carrossel")
-                    cols = st.columns(min(4, len(uploaded_images)))
+                    # Mostrar preview em grid do carrossel com números
+                    st.subheader("👁️ Preview do Carrossel (em ordem)")
+                    cols = st.columns(min(4, len(uploaded_images_sorted)))
                     
-                    for idx, img in enumerate(uploaded_images):
+                    for idx, img in enumerate(uploaded_images_sorted):
                         with cols[idx % 4]:
                             # Abrir imagem para mostrar miniatura
                             image = Image.open(img)
-                            st.image(image, use_container_width=True, caption=f"Imagem {idx+1} do carrossel")
+                            st.image(image, use_container_width=True, caption=f"Slide {idx+1}: {img.name}")
                             st.caption(f"📏 {image.width}x{image.height}px")
                 
                 # Botão para validar todas as imagens
@@ -4490,15 +4518,18 @@ with tab_mapping["✅ Validação Unificada"]:
                     # Lista para armazenar resultados
                     resultados_analise = []
                     
-                    # SE FOR UM CARROSSEL, ANALISAR DE FORMA ESPECIAL
-                    if is_carrossel and len(uploaded_images) > 1:
+                    # SE FOR UM CARROSSEL, ANALISAR DE FORMA ESPECIAL COM STORYTELLING
+                    if is_carrossel and len(uploaded_images_sorted) > 1:
                         st.info("🚀 **Iniciando análise especializada para carrossel...**")
                         
-                        # Analisar primeiro cada imagem individualmente
+                        # Variável para acumular contexto das imagens anteriores
+                        contexto_acumulado_carrossel = ""
                         resultados_individual = []
+                        descricoes_imagens = []
                         
-                        for idx, uploaded_image in enumerate(uploaded_images):
-                            with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images)}...'):
+                        # PASSO 1: Analisar cada imagem individualmente com contexto acumulado
+                        for idx, uploaded_image in enumerate(uploaded_images_sorted):
+                            with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images_sorted)}...'):
                                 try:
                                     # Abrir imagem para informações
                                     image = Image.open(uploaded_image)
@@ -4520,6 +4551,35 @@ with tab_mapping["✅ Validação Unificada"]:
                                         {contexto_global}
                                         ###END CONTEXTO ADICIONAL DO USUARIO###
                                         """
+                                    
+                                    # CONSTRUIR CONTEXTO ESPECÍFICO PARA CARROSSEL
+                                    contexto_carrossel_especifico = f"""
+                                    ## 📱 CONTEXTO DO CARROSSEL
+                                    
+                                    **INFORMAÇÕES IMPORTANTES:**
+                                    - Esta é a **IMAGEM {idx+1} de {len(uploaded_images_sorted)}** de um carrossel
+                                    - Carrossel = postagem com múltiplas imagens deslizáveis
+                                    - Total de imagens no carrossel: {len(uploaded_images_sorted)}
+                                    - Ordem: {idx+1}º na sequência
+                                    
+                                    **CONTEXTO DAS IMAGENS ANTERIORES:**
+                                    {contexto_acumulado_carrossel if contexto_acumulado_carrossel else "Esta é a primeira imagem do carrossel."}
+                                    
+                                    **INSTRUÇÕES ESPECIAIS PARA ANÁLISE DE CARROSSEL:**
+                                    1. Considere que esta imagem faz parte de uma sequência
+                                    2. Analise como esta imagem se relaciona com as anteriores (se houver)
+                                    3. Pense na progressão narrativa do carrossel
+                                    4. Considere o storytelling geral que está sendo construído
+                                    5. Avalie se esta imagem avança a narrativa de forma lógica
+                                    
+                                    **ANÁLISE ESPECÍFICA PARA ESTA POSIÇÃO NO CARROSSEL:**
+                                    - Posição: {idx+1}/{len(uploaded_images_sorted)}
+                                    - {'Esta é a imagem inicial do carrossel. Deve ter um hook forte.' if idx == 0 else ''}
+                                    - {'Esta é uma imagem intermediária. Deve manter o engajamento.' if 0 < idx < len(uploaded_images_sorted)-1 else ''}
+                                    - {'Esta é a imagem final do carrossel. Deve ter um fechamento impactante.' if idx == len(uploaded_images_sorted)-1 else ''}
+                                    """
+                                    
+                                    contexto_completo += contexto_carrossel_especifico
                                     
                                     # ANÁLISE ESPECIALIZADA POR MÚLTIPLOS ESPECIALISTAS VISUAIS
                                     if st.session_state.analise_especializada_imagem:
@@ -4544,13 +4604,40 @@ with tab_mapping["✅ Validação Unificada"]:
                                             f"{image.width}x{image.height}"
                                         )
                                         
+                                        # Extrair descrição da imagem para contexto acumulado
+                                        # Tentar extrair uma descrição resumida do relatório
+                                        descricao_imagem = ""
+                                        try:
+                                            # Buscar por padrões no relatório para extrair descrição
+                                            linhas = relatorio_consolidado.split('\n')
+                                            for linha in linhas:
+                                                if any(termo in linha.lower() for termo in ['descrição:', 'conteúdo:', 'mostra:', 'apresenta:', 'contém:']):
+                                                    descricao_imagem = linha
+                                                    break
+                                            
+                                            if not descricao_imagem and len(linhas) > 0:
+                                                descricao_imagem = linhas[0][:150] + "..."
+                                        except:
+                                            descricao_imagem = f"Imagem {idx+1}: {uploaded_image.name}"
+                                        
+                                        descricoes_imagens.append(descricao_imagem)
+                                        
+                                        # Atualizar contexto acumulado para a próxima imagem
+                                        if idx < len(uploaded_images_sorted) - 1:
+                                            contexto_acumulado_carrossel += f"""
+                                            **IMAGEM {idx+1} ({uploaded_image.name}):**
+                                            {descricao_imagem}
+                                            
+                                            """
+                                        
                                         resultados_individual.append({
                                             'nome': uploaded_image.name,
                                             'indice': idx + 1,
                                             'analise': relatorio_consolidado,
                                             'dimensoes': f"{image.width}x{image.height}",
                                             'tamanho': uploaded_image.size,
-                                            'especialistas_utilizados': list(analisadores_filtrados.keys())
+                                            'especialistas_utilizados': list(analisadores_filtrados.keys()),
+                                            'descricao': descricao_imagem
                                         })
                                     
                                 except Exception as e:
@@ -4561,64 +4648,114 @@ with tab_mapping["✅ Validação Unificada"]:
                                         'analise': f"❌ Erro na análise: {str(e)}",
                                         'dimensoes': "N/A",
                                         'tamanho': uploaded_image.size,
-                                        'especialistas_utilizados': []
+                                        'especialistas_utilizados': [],
+                                        'descricao': f"Erro na análise da imagem {idx+1}"
                                     })
                         
-                        # AGORA ANALISAR O CARROSSEL COMO UM TODO
-                        st.info("📊 **Analisando consistência e narrativa do carrossel...**")
+                        # PASSO 2: ANALISAR O CARROSSEL COMO UM TODO COM STORYTELLING
+                        st.info("📊 **Analisando storytelling e consistência do carrossel...**")
                         
                         with st.spinner('Analisando carrossel como conjunto...'):
                             try:
-                                # Preparar contexto para análise do carrossel
-                                contexto_carrossel = f"""
-                                ## 📱 ANÁLISE DE CARROSSEL DE IMAGENS
+                                # Preparar contexto para análise do carrossel com todas as descrições
+                                contexto_carrossel_completo = f"""
+                                ## 📱 ANÁLISE DE CARROSSEL DE IMAGENS - STORYTELLING
                                 
                                 **INFORMAÇÕES DO CARROSSEL:**
-                                - Total de imagens: {len(uploaded_images)}
-                                - Todas as imagens fazem parte do mesmo carrossel
-                                - Ordem das imagens: 1 a {len(uploaded_images)}
+                                - Total de imagens: {len(uploaded_images_sorted)}
+                                - Tipo: Carrossel de postagem
+                                - Ordem das imagens: 1 a {len(uploaded_images_sorted)}
                                 
                                 **CONTEXTO ADICIONAL:**
                                 {contexto_global if contexto_global else 'Nenhum contexto adicional fornecido'}
                                 
-                                **ANÁLISES INDIVIDUAIS DAS IMAGENS:**
+                                **DESCRIÇÕES DAS IMAGENS EM SEQUÊNCIA:**
                                 """
                                 
-                                # Adicionar resumo das análises individuais
-                                for res in resultados_individual:
-                                    contexto_carrossel += f"\n### Imagem {res['indice']}: {res['nome']}\n"
-                                    contexto_carrossel += f"Dimensões: {res['dimensoes']}\n"
-                                    contexto_carrossel += f"Status: {'✅ Analisada' if '❌' not in res['analise'] else '❌ Erro na análise'}\n"
+                                # Adicionar todas as descrições das imagens
+                                for idx, res in enumerate(resultados_individual):
+                                    contexto_carrossel_completo += f"\n### IMAGEM {idx+1}: {res['nome']}\n"
+                                    contexto_carrossel_completo += f"{res.get('descricao', 'Descrição não disponível')}\n"
                                 
-                                # Prompt para análise do carrossel
+                                # Prompt para análise do carrossel com foco em storytelling
                                 prompt_carrossel = f"""
-                                {contexto_carrossel}
+                                {contexto_carrossel_completo}
                                 
                                 ## INSTRUÇÕES PARA ANÁLISE DO CARROSSEL:
                                 
-                                Analise este conjunto de imagens como um CARROSSEL (postagem com múltiplas imagens deslizáveis).
+                                Analise este conjunto de imagens como um CARROSSEL (postagem com múltiplas imagens deslizáveis) com foco em STORYTELLING.
                                 
-                                **ASPECTOS A ANALISAR:**
-                                1. **CONSISTÊNCIA VISUAL:** As imagens são visualmente consistentes? (cores, estilo, tipografia)
-                                2. **NARRATIVA VISUAL:** As imagens contam uma história coerente quando vistas em sequência?
-                                3. **PROGRESSÃO LÓGICA:** Há uma progressão lógica da primeira à última imagem?
-                                4. **HARMONIA DE ELEMENTOS:** Elementos de marca aparecem consistentemente?
-                                5. **IMPACTO GERAL:** O carrossel como um todo é eficaz na comunicação da mensagem?
-                                6. **EXPERIÊNCIA DO USUÁRIO:** A sequência de imagens é agradável e fácil de seguir?
-                                7. **PONTOS FORTES DO CARROSSEL:** O que funciona bem no conjunto?
-                                8. **PONTOS A MELHORAR:** O que poderia ser melhorado na composição do carrossel?
+                                **ASPECTOS PRINCIPAIS A ANALISAR:**
+                                
+                                1. **STORYTELLING E NARRATIVA:**
+                                   - As imagens contam uma história coerente?
+                                   - Há uma progressão lógica do início ao fim?
+                                   - Como cada imagem contribui para a narrativa geral?
+                                   - A sequência faz sentido para o usuário?
+                                
+                                2. **PROGRESSÃO VISUAL:**
+                                   - Há um "arco" visual do início ao fim?
+                                   - As imagens constroem em cima das anteriores?
+                                   - Há clímax e resolução na sequência?
+                                
+                                3. **CONSISTÊNCIA VISUAL:**
+                                   - As imagens são visualmente consistentes? (cores, estilo, tipografia)
+                                   - Elementos de marca aparecem consistentemente?
+                                   - Há harmonia entre todas as imagens?
+                                
+                                4. **EXPERIÊNCIA DO USUÁRIO:**
+                                   - A sequência é agradável de navegar?
+                                   - Há motivo para o usuário continuar deslizando?
+                                   - Cada imagem oferece valor individual?
+                                
+                                5. **PONTOS FORTES DO STORYTELLING:**
+                                   - O que funciona bem na narrativa?
+                                   - Quais imagens têm mais impacto?
+                                   - Como o storytelling poderia ser ainda melhor?
+                                
+                                6. **FLUXO LÓGICO:**
+                                   - A ordem atual das imagens é a melhor possível?
+                                   - Há lacunas na narrativa?
+                                   - Alguma imagem quebra o fluxo?
                                 
                                 **FORMATO DA RESPOSTA:**
                                 
-                                # 📊 RELATÓRIO DE ANÁLISE DE CARROSSEL
+                                # 📊 RELATÓRIO DE ANÁLISE DE CARROSSEL - STORYTELLING
                                 
                                 ## 📋 INFORMAÇÕES GERAIS
-                                - Total de imagens: {len(uploaded_images)}
+                                - Total de imagens: {len(uploaded_images_sorted)}
                                 - Tipo: Carrossel de postagem
-                                - Ordem analisada: 1 a {len(uploaded_images)}
+                                - Ordem analisada: 1 a {len(uploaded_images_sorted)}
                                 
                                 ## 🎯 AVALIAÇÃO GERAL DO CARROSSEL
                                 [Nota geral de 1-10 e resumo da qualidade do carrossel como um todo]
+                                
+                                ## 📖 ANÁLISE DE STORYTELLING
+                                ### Progressão Narrativa
+                                [Como a história evolui através das imagens]
+                                
+                                ### Arco da Narrativa
+                                [Início, desenvolvimento, clímax e conclusão - se aplicável]
+                                
+                                ### Coerência da História
+                                [Se as imagens contam uma história unificada]
+                                
+                                ## 🎨 CONSISTÊNCIA VISUAL
+                                ### Cores e Estilo
+                                [Avaliação da consistência visual entre as imagens]
+                                
+                                ### Elementos de Marca
+                                [Consistência nos elementos de branding]
+                                
+                                ## 🔄 FLUXO E SEQUENCIAMENTO
+                                ### Ordem Atual
+                                [Avaliação da ordem atual das imagens]
+                                
+                                ### Sugestões de Reordenação
+                                [Sugestões para melhorar a ordem, se necessário]
+                                
+                                ### Pontos de Transição
+                                [Como as imagens se conectam umas às outras]
                                 
                                 ## ✅ PONTOS FORTES DO CONJUNTO
                                 - [Lista dos pontos fortes da composição do carrossel]
@@ -4626,27 +4763,21 @@ with tab_mapping["✅ Validação Unificada"]:
                                 ## ⚠️ OPORTUNIDADES DE MELHORIA
                                 - [Sugestões para melhorar o carrossel como um todo]
                                 
-                                ## 🔍 ANÁLISE DE CONSISTÊNCIA
-                                ### Cores e Estilo
-                                [Avaliação da consistência visual entre as imagens]
+                                ## 🎯 IMPACTO POR POSIÇÃO
+                                ### Imagem 1 (Hook)
+                                [Avaliação da imagem inicial como gancho]
                                 
-                                ### Tipografia e Texto
-                                [Consistência nos elementos textuais]
+                                ### Imagens Intermediárias
+                                [Como mantêm o engajamento]
                                 
-                                ### Elementos de Marca
-                                [Consistência nos elementos de branding]
-                                
-                                ## 📖 NARRATIVA VISUAL
-                                [Avaliação se as imagens contam uma história coerente]
-                                
-                                ## 🎨 SEQUENCIAMENTO RECOMENDADO
-                                [Sugestão de ordem ideal das imagens, se aplicável]
+                                ### Imagem Final (Fechamento)
+                                [Avaliação do fechamento do carrossel]
                                 
                                 ## 🚀 RECOMENDAÇÕES ESPECÍFICAS
-                                [Ações específicas para melhorar o carrossel]
+                                [Ações específicas para melhorar o storytelling do carrossel]
                                 
-                                ## 📊 RESUMO POR IMAGEM
-                                [Breve resumo do papel de cada imagem no carrossel]
+                                ## 📊 RESUMO POR IMAGEM NO CONTEXTO DO CARROSSEL
+                                [Breve resumo do papel de cada imagem na narrativa geral]
                                 """
                                 
                                 # Executar análise do carrossel
@@ -4655,7 +4786,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                 # Armazenar resultados do carrossel
                                 resultados_analise.append({
                                     'tipo': 'carrossel',
-                                    'nome': f"Carrossel ({len(uploaded_images)} imagens)",
+                                    'nome': f"Carrossel ({len(uploaded_images_sorted)} imagens)",
                                     'analise': resposta_carrossel.text,
                                     'resultados_individual': resultados_individual
                                 })
@@ -4666,7 +4797,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                 st.error(f"❌ Erro na análise do carrossel: {str(e)}")
                                 resultados_analise.append({
                                     'tipo': 'carrossel',
-                                    'nome': f"Carrossel ({len(uploaded_images)} imagens)",
+                                    'nome': f"Carrossel ({len(uploaded_images_sorted)} imagens)",
                                     'analise': f"❌ Erro na análise do carrossel: {str(e)}",
                                     'resultados_individual': resultados_individual
                                 })
@@ -4677,7 +4808,7 @@ with tab_mapping["✅ Validação Unificada"]:
                         
                         for resultado in resultados_analise:
                             if resultado['tipo'] == 'carrossel':
-                                with st.expander(f"📊 Análise do Carrossel ({len(uploaded_images)} imagens)", expanded=True):
+                                with st.expander(f"📊 Análise do Carrossel ({len(uploaded_images_sorted)} imagens)", expanded=True):
                                     st.markdown(resultado['analise'])
                                     
                                     # Botão para download do relatório do carrossel
@@ -4686,7 +4817,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                         st.download_button(
                                             "💾 Baixar Relatório do Carrossel",
                                             data=resultado['analise'],
-                                            file_name=f"relatorio_carrossel_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                                            file_name=f"relatorio_carrossel_storytelling_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
                                             mime="text/plain",
                                             key="download_relatorio_carrossel"
                                         )
@@ -4694,11 +4825,12 @@ with tab_mapping["✅ Validação Unificada"]:
                                     with col_dl2:
                                         # Criar relatório consolidado com todas as análises
                                         relatorio_completo = f"""
-                                        # 📊 RELATÓRIO COMPLETO - CARROSSEL
+                                        # 📊 RELATÓRIO COMPLETO - CARROSSEL COM STORYTELLING
                                         
                                         Data: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                                        Total de imagens: {len(uploaded_images)}
+                                        Total de imagens: {len(uploaded_images_sorted)}
                                         Tipo: Carrossel de postagem
+                                        Ordem: {" → ".join([img.name for img in uploaded_images_sorted])}
                                         
                                         ## ANÁLISE DO CARROSSEL COMO CONJUNTO
                                         {resultado['analise']}
@@ -4708,6 +4840,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                         
                                         for res in resultado['resultados_individual']:
                                             relatorio_completo += f"\n\n### 📷 IMAGEM {res['indice']}: {res['nome']}\n\n"
+                                            relatorio_completo += f"**Descrição:** {res.get('descricao', 'N/A')}\n\n"
                                             relatorio_completo += f"{res['analise']}\n"
                                             relatorio_completo += "---"
                                         
@@ -4721,19 +4854,26 @@ with tab_mapping["✅ Validação Unificada"]:
                         
                         # Exibir análises individuais em expanders
                         st.markdown("---")
-                        st.subheader("📷 Análises Individuais das Imagens")
+                        st.subheader("📷 Análises Individuais das Imagens (em contexto)")
                         
                         for res in resultados_individual:
                             with st.expander(f"🖼️ Imagem {res['indice']}: {res['nome']}", expanded=False):
+                                st.markdown(f"**Posição no carrossel:** {res['indice']} de {len(uploaded_images_sorted)}")
+                                if res.get('descricao'):
+                                    st.markdown(f"**Descrição:** {res['descricao']}")
                                 st.markdown(res['analise'])
                     
                     else:
                         # ANÁLISE NORMAL (NÃO É CARROSSEL)
                         st.info("🚀 **Iniciando análise individual das imagens...**")
                         
+                        # Usar imagens ordenadas
+                        uploaded_images_sorted = sorted(uploaded_images, 
+                                                      key=lambda x: (extract_number_from_filename(x.name), x.name.lower()))
+                        
                         # Loop através de cada imagem
-                        for idx, uploaded_image in enumerate(uploaded_images):
-                            with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images)}: {uploaded_image.name}...'):
+                        for idx, uploaded_image in enumerate(uploaded_images_sorted):
+                            with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images_sorted)}: {uploaded_image.name}...'):
                                 try:
                                     # Criar container para cada imagem
                                     with st.container():
@@ -4863,10 +5003,10 @@ with tab_mapping["✅ Validação Unificada"]:
                                             except Exception as e:
                                                 st.error(f"❌ Erro ao processar imagem {uploaded_image.name}: {str(e)}")
                                     
-                                    # Separador visual entre imagens
-                                    if idx < len(uploaded_images) - 1:
-                                        st.markdown("---")
-                                        
+                                        # Separador visual entre imagens
+                                        if idx < len(uploaded_images_sorted) - 1:
+                                            st.markdown("---")
+                                            
                                 except Exception as e:
                                     st.error(f"❌ Erro ao carregar imagem {uploaded_image.name}: {str(e)}")
                         
@@ -4879,11 +5019,11 @@ with tab_mapping["✅ Validação Unificada"]:
                         
                         col_resumo1, col_resumo2, col_resumo3 = st.columns(3)
                         with col_resumo1:
-                            st.metric("📊 Total de Imagens", len(uploaded_images))
+                            st.metric("📊 Total de Imagens", len(uploaded_images_sorted))
                         with col_resumo2:
                             st.metric("✅ Análises Concluídas", len(resultados_analise))
                         with col_resumo3:
-                            st.metric("🖼️ Processadas", len(uploaded_images))
+                            st.metric("🖼️ Processadas", len(uploaded_images_sorted))
                         
                         # Contexto aplicado no resumo
                         if contexto_global and contexto_global.strip():
@@ -4896,12 +5036,12 @@ with tab_mapping["✅ Validação Unificada"]:
                             
                             **Agente:** {agente.get('nome', 'N/A')}
                             **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                            **Total de Imagens:** {len(uploaded_images)}
+                            **Total de Imagens:** {len(uploaded_images_sorted)}
                             **Contexto Aplicado:** {contexto_global if contexto_global else 'Nenhum contexto adicional'}
                             **Método de Análise:** {'Especializada por Múltiplos Especialistas' if st.session_state.analise_especializada_imagem else 'Tradicional'}
                             
                             ## RESUMO EXECUTIVO
-                            {chr(10).join([f"{idx+1}. {img.name}" for idx, img in enumerate(uploaded_images)])}
+                            {chr(10).join([f"{idx+1}. {img.name}" for idx, img in enumerate(uploaded_images_sorted)])}
                             
                             ## ANÁLISES INDIVIDUAIS
                             {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_analise])}
@@ -4944,15 +5084,19 @@ with tab_mapping["✅ Validação Unificada"]:
                 4. **Clique em "Validar Todas as Imagens"** para iniciar a análise
                 
                 **🎯 Análise de Carrossel (quando marcado):**
-                - Verifica consistência visual entre todas as imagens
-                - Avalia narrativa e sequência lógica
-                - Analisa harmonia de cores e elementos
-                - Gera relatório específico para o conjunto
+                - **Storytelling**: Análise da progressão narrativa entre imagens
+                - **Consistência visual**: Harmonia entre cores e elementos
+                - **Contexto acumulado**: Cada imagem é analisada com conhecimento das anteriores
+                - **Ordem lógica**: Imagens são organizadas numericamente/alfabeticamente
                 
                 **🔍 Análise Individual (quando não é carrossel):**
                 - Cada imagem é analisada separadamente
                 - Foco em conformidade com branding
                 - Recomendações específicas por imagem
+                
+                **📝 Dica para carrossel:**
+                - Nomeie as imagens com números para garantir ordem correta (ex: "01_intro.jpg", "02_desenvolvimento.jpg", etc.)
+                - O sistema organizará automaticamente por ordem numérica e alfabética
                 """)
         
         # --- SUBTAB: VALIDAÇÃO DE VÍDEO ---
