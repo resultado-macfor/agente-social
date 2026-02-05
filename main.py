@@ -49,8 +49,8 @@ else:
 gemini_api_key = os.getenv("GEM_API_KEY")
 if gemini_api_key:
     genai.configure(api_key=gemini_api_key)
-    modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.0})
-    modelo_texto = genai.GenerativeModel("gemini-2.5-flash")
+    modelo_vision = genai.GenerativeModel("gemini-2.0-flash", generation_config={"temperature": 0.0})
+    modelo_texto = genai.GenerativeModel("gemini-2.0-flash")
 else:
     st.error("GEM_API_KEY não encontrada nas variáveis de ambiente")
     modelo_vision = None
@@ -3457,7 +3457,7 @@ with tab_mapping["✅ Validação Unificada"]:
             placeholder="Forneça contexto adicional que será aplicado a TODAS as análises (texto, documentos, imagens e vídeos)..."
         )
         
-        # Subabas para diferentes tipos de validação
+        # Subabas para diferentes tipos de validação - AGORA COM VALIDAÇÃO DE TEXTO EM IMAGEM E BATIMENTO DE LEGENDAS
         subtab_imagem, subtab_texto, subtab_video, subtab_texto_imagem, subtab_batimento_legendas = st.tabs(
             ["🖼️ Validação de Imagem", "📄 Validação de Documentos", "🎬 Validação de Vídeo", "📝 Validação de Texto em Imagem", "🎧 Batimento de Legendas"]
         )
@@ -3536,7 +3536,7 @@ with tab_mapping["✅ Validação Unificada"]:
                         "Sensibilidade (segundos):",
                         min_value=0.5,
                         max_value=5.0,
-                        value=2.5,
+                        value=2.0,
                         step=0.5,
                         help="Tolerância para considerar que legenda e áudio estão sincronizados"
                     )
@@ -3759,6 +3759,7 @@ with tab_mapping["✅ Validação Unificada"]:
         # --- SUBTAB: VALIDAÇÃO DE TEXTO EM IMAGEM ---
         with subtab_texto_imagem:
             st.subheader("📝 Validação de Texto em Imagem")
+            
             
             # Upload de múltiplas imagens
             st.markdown("### 📤 Upload de Imagens com Texto")
@@ -4381,7 +4382,7 @@ with tab_mapping["✅ Validação Unificada"]:
                 else:
                     st.info("Digite texto ou carregue arquivos para validar")
         
-        # --- SUBTAB: VALIDAÇÃO DE IMAGEM (COM NOVA FUNCIONALIDADE DE CARROSSEL) ---
+        # --- SUBTAB: VALIDAÇÃO DE IMAGEM ---
         with subtab_imagem:
             st.subheader("🖼️ Validação de Imagem")
             
@@ -4394,39 +4395,8 @@ with tab_mapping["✅ Validação Unificada"]:
                 "Carregue uma ou mais imagens para análise", 
                 type=["jpg", "jpeg", "png", "webp"], 
                 key="image_upload_validacao",
-                accept_multiple_files=True,
-                help="Selecione uma ou mais imagens para validação. Se for um carrossel, selecione todas as imagens do carrossel."
+                accept_multiple_files=True
             )
-            
-            # Função para extrair número do nome do arquivo para ordenação
-            def extract_number_from_filename(filename):
-                import re
-                numbers = re.findall(r'\d+', filename)
-                return int(numbers[0]) if numbers else 0
-            
-            # Organizar imagens de forma inteligente
-            if uploaded_images:
-                # Ordenar imagens primeiro numericamente, depois alfabeticamente
-                uploaded_images_sorted = sorted(uploaded_images, 
-                                               key=lambda x: (extract_number_from_filename(x.name), x.name.lower()))
-                
-                # NOVO: Checkbox para indicar que é um carrossel
-                col_carrossel1, col_carrossel2 = st.columns([3, 1])
-                with col_carrossel1:
-                    is_carrossel = st.checkbox(
-                        "📱 Estas imagens fazem parte de um CARROSSEL de postagem",
-                        value=False,
-                        help="Marque esta opção se as imagens fazem parte de um carrossel (postagem com múltiplas imagens deslizáveis). A análise considerará a sequência e consistência entre as imagens."
-                    )
-                
-                with col_carrossel2:
-                    if is_carrossel and len(uploaded_images_sorted) > 1:
-                        st.success(f"🎯 {len(uploaded_images_sorted)} imagens serão analisadas como carrossel")
-                        
-                        # Mostrar ordem das imagens
-                        with st.expander("📋 Ver ordem das imagens no carrossel", expanded=False):
-                            for idx, img in enumerate(uploaded_images_sorted):
-                                st.write(f"{idx+1}. {img.name}")
             
             # Configurações de análise de imagem
             with st.expander("⚙️ Configurações de Análise de Imagem"):
@@ -4436,35 +4406,6 @@ with tab_mapping["✅ Validação Unificada"]:
                     help="Usa múltiplos especialistas visuais para análise mais precisa",
                     key="analise_especializada_imagem_check"
                 )
-                
-                # Configurações específicas para carrossel
-                if uploaded_images and len(uploaded_images) > 1:
-                    st.markdown("### 📱 Configurações Específicas para Carrossel")
-                    
-                    if is_carrossel:
-                        analise_storytelling = st.checkbox(
-                            "Analisar storytelling do carrossel",
-                            value=True,
-                            help="Avaliar a progressão narrativa e storytelling entre as imagens do carrossel"
-                        )
-                        
-                        analise_consistencia_carrossel = st.checkbox(
-                            "Analisar consistência entre imagens do carrossel",
-                            value=True,
-                            help="Verificar se há consistência visual, de cores, tipografia e elementos entre as imagens do carrossel"
-                        )
-                        
-                        analise_narrativa_carrossel = st.checkbox(
-                            "Analisar narrativa visual do carrossel",
-                            value=True,
-                            help="Avaliar se as imagens contam uma história ou mensagem coerente quando vistas em sequência"
-                        )
-                        
-                        gerar_relatorio_carrossel = st.checkbox(
-                            "Gerar relatório específico para carrossel",
-                            value=True,
-                            help="Criar um relatório consolidado específico para a análise do carrossel como um todo"
-                        )
                 
                 analisadores_selecionados_imagem = st.multiselect(
                     "Especialistas de imagem a incluir:",
@@ -4481,36 +4422,7 @@ with tab_mapping["✅ Validação Unificada"]:
                 )
             
             if uploaded_images:
-                # Ordenar imagens de forma inteligente
-                uploaded_images_sorted = sorted(uploaded_images, 
-                                               key=lambda x: (extract_number_from_filename(x.name), x.name.lower()))
-                
-                st.success(f"✅ {len(uploaded_images_sorted)} imagem(ns) carregada(s)")
-                
-                # Se for carrossel, mostrar informações específicas
-                if is_carrossel and len(uploaded_images_sorted) > 1:
-                    st.info(f"""
-                    **📱 ANÁLISE ESPECIAL DE CARROSSEL ATIVADA**
-                    
-                    As {len(uploaded_images_sorted)} imagens serão analisadas como um carrossel, considerando:
-                    - **Storytelling**: Progressão narrativa entre as imagens
-                    - **Consistência visual**: Harmonia entre cores e elementos
-                    - **Narrativa visual**: História coerente em sequência
-                    - **Contexto acumulado**: Análise com conhecimento das imagens anteriores
-                    
-                    **Ordem do carrossel:** {", ".join([img.name for img in uploaded_images_sorted])}
-                    """)
-                    
-                    # Mostrar preview em grid do carrossel com números
-                    st.subheader("👁️ Preview do Carrossel (em ordem)")
-                    cols = st.columns(min(4, len(uploaded_images_sorted)))
-                    
-                    for idx, img in enumerate(uploaded_images_sorted):
-                        with cols[idx % 4]:
-                            # Abrir imagem para mostrar miniatura
-                            image = Image.open(img)
-                            st.image(image, use_container_width=True, caption=f"Slide {idx+1}: {img.name}")
-                            st.caption(f"📏 {image.width}x{image.height}px")
+                st.success(f"✅ {len(uploaded_images)} imagem(ns) carregada(s)")
                 
                 # Botão para validar todas as imagens
                 if st.button("🔍 Validar Todas as Imagens", type="primary", key="validar_imagens_multiplas"):
@@ -4518,586 +4430,199 @@ with tab_mapping["✅ Validação Unificada"]:
                     # Lista para armazenar resultados
                     resultados_analise = []
                     
-                    # SE FOR UM CARROSSEL, ANALISAR DE FORMA ESPECIAL COM STORYTELLING
-                    if is_carrossel and len(uploaded_images_sorted) > 1:
-                        st.info("🚀 **Iniciando análise especializada para carrossel...**")
-                        
-                        # Variável para acumular contexto das imagens anteriores
-                        contexto_acumulado_carrossel = ""
-                        resultados_individual = []
-                        descricoes_imagens = []
-                        
-                        # PASSO 1: Analisar cada imagem individualmente com contexto acumulado
-                        for idx, uploaded_image in enumerate(uploaded_images_sorted):
-                            with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images_sorted)}...'):
-                                try:
-                                    # Abrir imagem para informações
-                                    image = Image.open(uploaded_image)
-                                    
-                                    # Construir contexto com base de conhecimento do agente
-                                    contexto_agente = ""
-                                    if "base_conhecimento" in agente:
-                                        contexto_agente = f"""
-                                        ###BEGIN DIRETRIZES DE BRANDING DO AGENTE:###
-                                        {agente['base_conhecimento']}
-                                        ###END DIRETRIZES DE BRANDING DO AGENTE###
-                                        """
-                                    
-                                    # Adicionar contexto global se fornecido
-                                    contexto_completo = contexto_agente
-                                    if contexto_global and contexto_global.strip():
-                                        contexto_completo += f"""
-                                        ###BEGIN CONTEXTO ADICIONAL DO USUARIO###
-                                        {contexto_global}
-                                        ###END CONTEXTO ADICIONAL DO USUARIO###
-                                        """
-                                    
-                                    # CONSTRUIR CONTEXTO ESPECÍFICO PARA CARROSSEL
-                                    contexto_carrossel_especifico = f"""
-                                    ## 📱 CONTEXTO DO CARROSSEL
-                                    
-                                    **INFORMAÇÕES IMPORTANTES:**
-                                    - Esta é a **IMAGEM {idx+1} de {len(uploaded_images_sorted)}** de um carrossel
-                                    - Carrossel = postagem com múltiplas imagens deslizáveis
-                                    - Total de imagens no carrossel: {len(uploaded_images_sorted)}
-                                    - Ordem: {idx+1}º na sequência
-                                    
-                                    **CONTEXTO DAS IMAGENS ANTERIORES:**
-                                    {contexto_acumulado_carrossel if contexto_acumulado_carrossel else "Esta é a primeira imagem do carrossel."}
-                                    
-                                    **INSTRUÇÕES ESPECIAIS PARA ANÁLISE DE CARROSSEL:**
-                                    1. Considere que esta imagem faz parte de uma sequência
-                                    2. Analise como esta imagem se relaciona com as anteriores (se houver)
-                                    3. Pense na progressão narrativa do carrossel
-                                    4. Considere o storytelling geral que está sendo construído
-                                    5. Avalie se esta imagem avança a narrativa de forma lógica
-                                    
-                                    **ANÁLISE ESPECÍFICA PARA ESTA POSIÇÃO NO CARROSSEL:**
-                                    - Posição: {idx+1}/{len(uploaded_images_sorted)}
-                                    - {'Esta é a imagem inicial do carrossel. Deve ter um hook forte.' if idx == 0 else ''}
-                                    - {'Esta é uma imagem intermediária. Deve manter o engajamento.' if 0 < idx < len(uploaded_images_sorted)-1 else ''}
-                                    - {'Esta é a imagem final do carrossel. Deve ter um fechamento impactante.' if idx == len(uploaded_images_sorted)-1 else ''}
-                                    """
-                                    
-                                    contexto_completo += contexto_carrossel_especifico
-                                    
-                                    # ANÁLISE ESPECIALIZADA POR MÚLTIPLOS ESPECIALISTAS VISUAIS
-                                    if st.session_state.analise_especializada_imagem:
-                                        # Criar analisadores especialistas
-                                        analisadores_config = criar_analisadores_imagem(contexto_completo, "")
-                                        
-                                        # Filtrar apenas os selecionados
-                                        analisadores_filtrados = {k: v for k, v in analisadores_config.items() 
-                                                                 if k in st.session_state.analisadores_selecionados_imagem}
-                                        
-                                        # Executar análises especializadas
-                                        resultados_especialistas = executar_analise_imagem_especializada(
-                                            uploaded_image, 
-                                            uploaded_image.name, 
-                                            analisadores_filtrados
-                                        )
-                                        
-                                        # Gerar relatório consolidado
-                                        relatorio_consolidado = gerar_relatorio_imagem_consolidado(
-                                            resultados_especialistas, 
-                                            uploaded_image.name,
-                                            f"{image.width}x{image.height}"
-                                        )
-                                        
-                                        # Extrair descrição da imagem para contexto acumulado
-                                        # Tentar extrair uma descrição resumida do relatório
-                                        descricao_imagem = ""
-                                        try:
-                                            # Buscar por padrões no relatório para extrair descrição
-                                            linhas = relatorio_consolidado.split('\n')
-                                            for linha in linhas:
-                                                if any(termo in linha.lower() for termo in ['descrição:', 'conteúdo:', 'mostra:', 'apresenta:', 'contém:']):
-                                                    descricao_imagem = linha
-                                                    break
-                                            
-                                            if not descricao_imagem and len(linhas) > 0:
-                                                descricao_imagem = linhas[0][:150] + "..."
-                                        except:
-                                            descricao_imagem = f"Imagem {idx+1}: {uploaded_image.name}"
-                                        
-                                        descricoes_imagens.append(descricao_imagem)
-                                        
-                                        # Atualizar contexto acumulado para a próxima imagem
-                                        if idx < len(uploaded_images_sorted) - 1:
-                                            contexto_acumulado_carrossel += f"""
-                                            **IMAGEM {idx+1} ({uploaded_image.name}):**
-                                            {descricao_imagem}
-                                            
-                                            """
-                                        
-                                        resultados_individual.append({
-                                            'nome': uploaded_image.name,
-                                            'indice': idx + 1,
-                                            'analise': relatorio_consolidado,
-                                            'dimensoes': f"{image.width}x{image.height}",
-                                            'tamanho': uploaded_image.size,
-                                            'especialistas_utilizados': list(analisadores_filtrados.keys()),
-                                            'descricao': descricao_imagem
-                                        })
-                                    
-                                except Exception as e:
-                                    st.error(f"❌ Erro ao processar imagem {uploaded_image.name}: {str(e)}")
-                                    resultados_individual.append({
-                                        'nome': uploaded_image.name,
-                                        'indice': idx + 1,
-                                        'analise': f"❌ Erro na análise: {str(e)}",
-                                        'dimensoes': "N/A",
-                                        'tamanho': uploaded_image.size,
-                                        'especialistas_utilizados': [],
-                                        'descricao': f"Erro na análise da imagem {idx+1}"
-                                    })
-                        
-                        # PASSO 2: ANALISAR O CARROSSEL COMO UM TODO COM STORYTELLING
-                        st.info("📊 **Analisando storytelling e consistência do carrossel...**")
-                        
-                        with st.spinner('Analisando carrossel como conjunto...'):
+                    # Loop através de cada imagem
+                    for idx, uploaded_image in enumerate(uploaded_images):
+                        with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images)}: {uploaded_image.name}...'):
                             try:
-                                # Preparar contexto para análise do carrossel com todas as descrições
-                                contexto_carrossel_completo = f"""
-                                ## 📱 ANÁLISE DE CARROSSEL DE IMAGENS - STORYTELLING
-                                
-                                **INFORMAÇÕES DO CARROSSEL:**
-                                - Total de imagens: {len(uploaded_images_sorted)}
-                                - Tipo: Carrossel de postagem
-                                - Ordem das imagens: 1 a {len(uploaded_images_sorted)}
-                                
-                                **CONTEXTO ADICIONAL:**
-                                {contexto_global if contexto_global else 'Nenhum contexto adicional fornecido'}
-                                
-                                **DESCRIÇÕES DAS IMAGENS EM SEQUÊNCIA:**
-                                """
-                                
-                                # Adicionar todas as descrições das imagens
-                                for idx, res in enumerate(resultados_individual):
-                                    contexto_carrossel_completo += f"\n### IMAGEM {idx+1}: {res['nome']}\n"
-                                    contexto_carrossel_completo += f"{res.get('descricao', 'Descrição não disponível')}\n"
-                                
-                                # Prompt para análise do carrossel com foco em storytelling
-                                prompt_carrossel = f"""
-                                {contexto_carrossel_completo}
-                                
-                                ## INSTRUÇÕES PARA ANÁLISE DO CARROSSEL:
-                                
-                                Analise este conjunto de imagens como um CARROSSEL (postagem com múltiplas imagens deslizáveis) com foco em STORYTELLING.
-                                
-                                **ASPECTOS PRINCIPAIS A ANALISAR:**
-                                
-                                1. **STORYTELLING E NARRATIVA:**
-                                   - As imagens contam uma história coerente?
-                                   - Há uma progressão lógica do início ao fim?
-                                   - Como cada imagem contribui para a narrativa geral?
-                                   - A sequência faz sentido para o usuário?
-                                
-                                2. **PROGRESSÃO VISUAL:**
-                                   - Há um "arco" visual do início ao fim?
-                                   - As imagens constroem em cima das anteriores?
-                                   - Há clímax e resolução na sequência?
-                                
-                                3. **CONSISTÊNCIA VISUAL:**
-                                   - As imagens são visualmente consistentes? (cores, estilo, tipografia)
-                                   - Elementos de marca aparecem consistentemente?
-                                   - Há harmonia entre todas as imagens?
-                                
-                                4. **EXPERIÊNCIA DO USUÁRIO:**
-                                   - A sequência é agradável de navegar?
-                                   - Há motivo para o usuário continuar deslizando?
-                                   - Cada imagem oferece valor individual?
-                                
-                                5. **PONTOS FORTES DO STORYTELLING:**
-                                   - O que funciona bem na narrativa?
-                                   - Quais imagens têm mais impacto?
-                                   - Como o storytelling poderia ser ainda melhor?
-                                
-                                6. **FLUXO LÓGICO:**
-                                   - A ordem atual das imagens é a melhor possível?
-                                   - Há lacunas na narrativa?
-                                   - Alguma imagem quebra o fluxo?
-                                
-                                **FORMATO DA RESPOSTA:**
-                                
-                                # 📊 RELATÓRIO DE ANÁLISE DE CARROSSEL - STORYTELLING
-                                
-                                ## 📋 INFORMAÇÕES GERAIS
-                                - Total de imagens: {len(uploaded_images_sorted)}
-                                - Tipo: Carrossel de postagem
-                                - Ordem analisada: 1 a {len(uploaded_images_sorted)}
-                                
-                                ## 🎯 AVALIAÇÃO GERAL DO CARROSSEL
-                                [Nota geral de 1-10 e resumo da qualidade do carrossel como um todo]
-                                
-                                ## 📖 ANÁLISE DE STORYTELLING
-                                ### Progressão Narrativa
-                                [Como a história evolui através das imagens]
-                                
-                                ### Arco da Narrativa
-                                [Início, desenvolvimento, clímax e conclusão - se aplicável]
-                                
-                                ### Coerência da História
-                                [Se as imagens contam uma história unificada]
-                                
-                                ## 🎨 CONSISTÊNCIA VISUAL
-                                ### Cores e Estilo
-                                [Avaliação da consistência visual entre as imagens]
-                                
-                                ### Elementos de Marca
-                                [Consistência nos elementos de branding]
-                                
-                                ## 🔄 FLUXO E SEQUENCIAMENTO
-                                ### Ordem Atual
-                                [Avaliação da ordem atual das imagens]
-                                
-                                ### Sugestões de Reordenação
-                                [Sugestões para melhorar a ordem, se necessário]
-                                
-                                ### Pontos de Transição
-                                [Como as imagens se conectam umas às outras]
-                                
-                                ## ✅ PONTOS FORTES DO CONJUNTO
-                                - [Lista dos pontos fortes da composição do carrossel]
-                                
-                                ## ⚠️ OPORTUNIDADES DE MELHORIA
-                                - [Sugestões para melhorar o carrossel como um todo]
-                                
-                                ## 🎯 IMPACTO POR POSIÇÃO
-                                ### Imagem 1 (Hook)
-                                [Avaliação da imagem inicial como gancho]
-                                
-                                ### Imagens Intermediárias
-                                [Como mantêm o engajamento]
-                                
-                                ### Imagem Final (Fechamento)
-                                [Avaliação do fechamento do carrossel]
-                                
-                                ## 🚀 RECOMENDAÇÕES ESPECÍFICAS
-                                [Ações específicas para melhorar o storytelling do carrossel]
-                                
-                                ## 📊 RESUMO POR IMAGEM NO CONTEXTO DO CARROSSEL
-                                [Breve resumo do papel de cada imagem na narrativa geral]
-                                """
-                                
-                                # Executar análise do carrossel
-                                resposta_carrossel = modelo_texto.generate_content(prompt_carrossel)
-                                
-                                # Armazenar resultados do carrossel
-                                resultados_analise.append({
-                                    'tipo': 'carrossel',
-                                    'nome': f"Carrossel ({len(uploaded_images_sorted)} imagens)",
-                                    'analise': resposta_carrossel.text,
-                                    'resultados_individual': resultados_individual
-                                })
-                                
-                                st.success("✅ Análise do carrossel concluída!")
-                                
-                            except Exception as e:
-                                st.error(f"❌ Erro na análise do carrossel: {str(e)}")
-                                resultados_analise.append({
-                                    'tipo': 'carrossel',
-                                    'nome': f"Carrossel ({len(uploaded_images_sorted)} imagens)",
-                                    'analise': f"❌ Erro na análise do carrossel: {str(e)}",
-                                    'resultados_individual': resultados_individual
-                                })
-                        
-                        # Exibir resultados do carrossel
-                        st.markdown("---")
-                        st.subheader("📱 Resultados da Análise do Carrossel")
-                        
-                        for resultado in resultados_analise:
-                            if resultado['tipo'] == 'carrossel':
-                                with st.expander(f"📊 Análise do Carrossel ({len(uploaded_images_sorted)} imagens)", expanded=True):
-                                    st.markdown(resultado['analise'])
+                                # Criar container para cada imagem
+                                with st.container():
+                                    st.markdown("---")
+                                    col_img, col_info = st.columns([2, 1])
                                     
-                                    # Botão para download do relatório do carrossel
-                                    col_dl1, col_dl2 = st.columns(2)
-                                    with col_dl1:
-                                        st.download_button(
-                                            "💾 Baixar Relatório do Carrossel",
-                                            data=resultado['analise'],
-                                            file_name=f"relatorio_carrossel_storytelling_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                                            mime="text/plain",
-                                            key="download_relatorio_carrossel"
-                                        )
+                                    with col_img:
+                                        # Exibir imagem
+                                        image = Image.open(uploaded_image)
+                                        st.image(image, use_container_width=True, caption=f"Imagem {idx+1}: {uploaded_image.name}")
                                     
-                                    with col_dl2:
-                                        # Criar relatório consolidado com todas as análises
-                                        relatorio_completo = f"""
-                                        # 📊 RELATÓRIO COMPLETO - CARROSSEL COM STORYTELLING
-                                        
-                                        Data: {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                                        Total de imagens: {len(uploaded_images_sorted)}
-                                        Tipo: Carrossel de postagem
-                                        Ordem: {" → ".join([img.name for img in uploaded_images_sorted])}
-                                        
-                                        ## ANÁLISE DO CARROSSEL COMO CONJUNTO
-                                        {resultado['analise']}
-                                        
-                                        ## ANÁLISES INDIVIDUAIS DAS IMAGENS
-                                        """
-                                        
-                                        for res in resultado['resultados_individual']:
-                                            relatorio_completo += f"\n\n### 📷 IMAGEM {res['indice']}: {res['nome']}\n\n"
-                                            relatorio_completo += f"**Descrição:** {res.get('descricao', 'N/A')}\n\n"
-                                            relatorio_completo += f"{res['analise']}\n"
-                                            relatorio_completo += "---"
-                                        
-                                        st.download_button(
-                                            "📦 Baixar Relatório Completo",
-                                            data=relatorio_completo,
-                                            file_name=f"relatorio_completo_carrossel_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                                            mime="text/plain",
-                                            key="download_completo_carrossel"
-                                        )
-                        
-                        # Exibir análises individuais em expanders
-                        st.markdown("---")
-                        st.subheader("📷 Análises Individuais das Imagens (em contexto)")
-                        
-                        for res in resultados_individual:
-                            with st.expander(f"🖼️ Imagem {res['indice']}: {res['nome']}", expanded=False):
-                                st.markdown(f"**Posição no carrossel:** {res['indice']} de {len(uploaded_images_sorted)}")
-                                if res.get('descricao'):
-                                    st.markdown(f"**Descrição:** {res['descricao']}")
-                                st.markdown(res['analise'])
-                    
-                    else:
-                        # ANÁLISE NORMAL (NÃO É CARROSSEL)
-                        st.info("🚀 **Iniciando análise individual das imagens...**")
-                        
-                        # Usar imagens ordenadas
-                        uploaded_images_sorted = sorted(uploaded_images, 
-                                                      key=lambda x: (extract_number_from_filename(x.name), x.name.lower()))
-                        
-                        # Loop através de cada imagem
-                        for idx, uploaded_image in enumerate(uploaded_images_sorted):
-                            with st.spinner(f'Analisando imagem {idx+1} de {len(uploaded_images_sorted)}: {uploaded_image.name}...'):
-                                try:
-                                    # Criar container para cada imagem
-                                    with st.container():
-                                        st.markdown("---")
-                                        col_img, col_info = st.columns([2, 1])
-                                        
-                                        with col_img:
-                                            # Exibir imagem
-                                            image = Image.open(uploaded_image)
-                                            st.image(image, use_container_width=True, caption=f"Imagem {idx+1}: {uploaded_image.name}")
-                                        
-                                        with col_info:
-                                            # Informações da imagem
-                                            st.metric("📐 Dimensões", f"{image.width} x {image.height}")
-                                            st.metric("📊 Formato", uploaded_image.type)
-                                            st.metric("📁 Tamanho", f"{uploaded_image.size / 1024:.1f} KB")
-                                        
-                                        # Contexto aplicado
-                                        if contexto_global and contexto_global.strip():
-                                            st.info(f"**🎯 Contexto Aplicado:** {contexto_global}")
-                                        
-                                        # Análise individual
-                                        with st.expander(f"📋 Análise Detalhada - Imagem {idx+1}", expanded=True):
-                                            try:
-                                                # Construir contexto com base de conhecimento do agente
-                                                contexto_agente = ""
-                                                if "base_conhecimento" in agente:
-                                                    contexto_agente = f"""
-                                                    ###BEGIN DIRETRIZES DE BRANDING DO AGENTE:###
-                                                    {agente['base_conhecimento']}
-                                                    ###END DIRETRIZES DE BRANDING DO AGENTE###
-                                                    """
-                                                
-                                                # Adicionar contexto global se fornecido
-                                                contexto_completo = contexto_agente
-                                                if contexto_global and contexto_global.strip():
-                                                    contexto_completo += f"""
-                                                    ###BEGIN CONTEXTO ADICIONAL DO USUARIO###
-                                                    {contexto_global}
-                                                    ###END CONTEXTO ADICIONAL DO USUARIO###
-                                                    """
-                                                
-                                                # Escolher método de análise
-                                                if st.session_state.analise_especializada_imagem:
-                                                    # ANÁLISE ESPECIALIZADA POR MÚLTIPLOS ESPECIALISTAS VISUAIS
-                                                    st.info("🎯 **Executando análise especializada por múltiplos especialistas visuais...**")
-                                                    
-                                                    # Criar analisadores especialistas
-                                                    analisadores_config = criar_analisadores_imagem(contexto_completo, "")
-                                                    
-                                                    # Filtrar apenas os selecionados
-                                                    analisadores_filtrados = {k: v for k, v in analisadores_config.items() 
-                                                                             if k in st.session_state.analisadores_selecionados_imagem}
-                                                    
-                                                    # Executar análises especializadas
-                                                    resultados_especialistas = executar_analise_imagem_especializada(
-                                                        uploaded_image, 
-                                                        uploaded_image.name, 
-                                                        analisadores_filtrados
-                                                    )
-                                                    
-                                                    # Gerar relatório consolidado
-                                                    relatorio_consolidado = gerar_relatorio_imagem_consolidado(
-                                                        resultados_especialistas, 
-                                                        uploaded_image.name,
-                                                        f"{image.width}x{image.height}"
-                                                    )
-                                                    
-                                                    st.markdown(relatorio_consolidado, unsafe_allow_html=True)
-                                                    
-                                                    # Armazenar resultado
-                                                    resultados_analise.append({
-                                                        'nome': uploaded_image.name,
-                                                        'indice': idx,
-                                                        'analise': relatorio_consolidado,
-                                                        'dimensoes': f"{image.width}x{image.height}",
-                                                        'tamanho': uploaded_image.size
-                                                    })
-                                                    
-                                                else:
-                                                    # Análise geral da imagem (método antigo)
-                                                    prompt_analise = f"""
-                                                    {contexto_completo}
-                                                    
-                                                    Analise esta imagem e verifique o alinhamento com as diretrizes de branding.
-                                                    
-                                                    Forneça a análise em formato claro:
-                                                    
-                                                    ## 🖼️ RELATÓRIO DE ALINHAMENTO - IMAGEM {idx+1}
-                                                    
-                                                    **Arquivo:** {uploaded_image.name}
-                                                    **Dimensões:** {image.width} x {image.height}
-                                                    
-                                                    ### 🎯 RESUMO DA IMAGEM
-                                                    [Avaliação geral de conformidade visual e textual]
-                                                    
-                                                    ### ✅ ELEMENTOS ALINHADOS 
-                                                    [Itens visuais e textuais que seguem as diretrizes]
-                                                    
-                                                    ### ⚠️ ELEMENTOS FORA DO PADRÃO
-                                                    [Itens visuais e textuais que não seguem as diretrizes]
-                                                    
-                                                    ### 💡 RECOMENDAÇÕES
-                                                    [Sugestões para melhorar o alinhamento visual e textual]
-                                                    
-                                                    ### 🎨 ASPECTOS TÉCNICOS
-                                                    [Composição, cores, tipografia, etc.]
-                                                    """
-                                                    
-                                                    # Processar imagem
-                                                    response = modelo_vision.generate_content([
-                                                        prompt_analise,
-                                                        {"mime_type": "image/jpeg", "data": uploaded_image.getvalue()}
-                                                    ])
-                                                    
-                                                    st.markdown(response.text)
-                                                    
-                                                    # Armazenar resultado
-                                                    resultados_analise.append({
-                                                        'nome': uploaded_image.name,
-                                                        'indice': idx,
-                                                        'analise': response.text,
-                                                        'dimensoes': f"{image.width}x{image.height}",
-                                                        'tamanho': uploaded_image.size
-                                                    })
-                                                
-                                            except Exception as e:
-                                                st.error(f"❌ Erro ao processar imagem {uploaded_image.name}: {str(e)}")
+                                    with col_info:
+                                        # Informações da imagem
+                                        st.metric("📐 Dimensões", f"{image.width} x {image.height}")
+                                        st.metric("📊 Formato", uploaded_image.type)
+                                        st.metric("📁 Tamanho", f"{uploaded_image.size / 1024:.1f} KB")
                                     
-                                        # Separador visual entre imagens
-                                        if idx < len(uploaded_images_sorted) - 1:
-                                            st.markdown("---")
+                                    # Contexto aplicado
+                                    if contexto_global and contexto_global.strip():
+                                        st.info(f"**🎯 Contexto Aplicado:** {contexto_global}")
+                                    
+                                    # Análise individual
+                                    with st.expander(f"📋 Análise Detalhada - Imagem {idx+1}", expanded=True):
+                                        try:
+                                            # Construir contexto com base de conhecimento do agente
+                                            contexto_agente = ""
+                                            if "base_conhecimento" in agente:
+                                                contexto_agente = f"""
+                                                ###BEGIN DIRETRIZES DE BRANDING DO AGENTE:###
+                                                {agente['base_conhecimento']}
+                                                ###END DIRETRIZES DE BRANDING DO AGENTE###
+                                                """
                                             
-                                except Exception as e:
-                                    st.error(f"❌ Erro ao carregar imagem {uploaded_image.name}: {str(e)}")
+                                            # Adicionar contexto global se fornecido
+                                            contexto_completo = contexto_agente
+                                            if contexto_global and contexto_global.strip():
+                                                contexto_completo += f"""
+                                                ###BEGIN CONTEXTO ADICIONAL DO USUARIO###
+                                                {contexto_global}
+                                                ###END CONTEXTO ADICIONAL DO USUARIO###
+                                                """
+                                            
+                                            # Escolher método de análise
+                                            if st.session_state.analise_especializada_imagem:
+                                                # ANÁLISE ESPECIALIZADA POR MÚLTIPLOS ESPECIALISTAS VISUAIS
+                                                st.info("🎯 **Executando análise especializada por múltiplos especialistas visuais...**")
+                                                
+                                                # Criar analisadores especialistas
+                                                analisadores_config = criar_analisadores_imagem(contexto_completo, "")
+                                                
+                                                # Filtrar apenas os selecionados
+                                                analisadores_filtrados = {k: v for k, v in analisadores_config.items() 
+                                                                         if k in st.session_state.analisadores_selecionados_imagem}
+                                                
+                                                # Executar análises especializadas
+                                                resultados_especialistas = executar_analise_imagem_especializada(
+                                                    uploaded_image, 
+                                                    uploaded_image.name, 
+                                                    analisadores_filtrados
+                                                )
+                                                
+                                                # Gerar relatório consolidado
+                                                relatorio_consolidado = gerar_relatorio_imagem_consolidado(
+                                                    resultados_especialistas, 
+                                                    uploaded_image.name,
+                                                    f"{image.width}x{image.height}"
+                                                )
+                                                
+                                                st.markdown(relatorio_consolidado, unsafe_allow_html=True)
+                                                
+                                                # Armazenar resultado
+                                                resultados_analise.append({
+                                                    'nome': uploaded_image.name,
+                                                    'indice': idx,
+                                                    'analise': relatorio_consolidado,
+                                                    'dimensoes': f"{image.width}x{image.height}",
+                                                    'tamanho': uploaded_image.size
+                                                })
+                                                
+                                            else:
+                                                # Análise geral da imagem (método antigo)
+                                                prompt_analise = f"""
+                                                {contexto_completo}
+                                                
+                                                Analise esta imagem e verifique o alinhamento com as diretrizes de branding.
+                                                
+                                                Forneça a análise em formato claro:
+                                                
+                                                ## 🖼️ RELATÓRIO DE ALINHAMENTO - IMAGEM {idx+1}
+                                                
+                                                **Arquivo:** {uploaded_image.name}
+                                                **Dimensões:** {image.width} x {image.height}
+                                                
+                                                ### 🎯 RESUMO DA IMAGEM
+                                                [Avaliação geral de conformidade visual e textual]
+                                                
+                                                ### ✅ ELEMENTOS ALINHADOS 
+                                                [Itens visuais e textuais que seguem as diretrizes]
+                                                
+                                                ### ⚠️ ELEMENTOS FORA DO PADRÃO
+                                                [Itens visuais e textuais que não seguem as diretrizes]
+                                                
+                                                ### 💡 RECOMENDAÇÕES
+                                                [Sugestões para melhorar o alinhamento visual e textual]
+                                                
+                                                ### 🎨 ASPECTOS TÉCNICOS
+                                                [Composição, cores, tipografia, etc.]
+                                                """
+                                                
+                                                # Processar imagem
+                                                response = modelo_vision.generate_content([
+                                                    prompt_analise,
+                                                    {"mime_type": "image/jpeg", "data": uploaded_image.getvalue()}
+                                                ])
+                                                
+                                                st.markdown(response.text)
+                                                
+                                                # Armazenar resultado
+                                                resultados_analise.append({
+                                                    'nome': uploaded_image.name,
+                                                    'indice': idx,
+                                                    'analise': response.text,
+                                                    'dimensoes': f"{image.width}x{image.height}",
+                                                    'tamanho': uploaded_image.size
+                                                })
+                                            
+                                        except Exception as e:
+                                            st.error(f"❌ Erro ao processar imagem {uploaded_image.name}: {str(e)}")
+                                
+                                # Separador visual entre imagens
+                                if idx < len(uploaded_images) - 1:
+                                    st.markdown("---")
+                                    
+                            except Exception as e:
+                                st.error(f"❌ Erro ao carregar imagem {uploaded_image.name}: {str(e)}")
+                    
+                    # Armazenar na sessão
+                    st.session_state.resultados_analise_imagem = resultados_analise
+                    
+                    # Resumo executivo
+                    st.markdown("---")
+                    st.subheader("📋 Resumo Executivo de Imagens")
+                    
+                    col_resumo1, col_resumo2, col_resumo3 = st.columns(3)
+                    with col_resumo1:
+                        st.metric("📊 Total de Imagens", len(uploaded_images))
+                    with col_resumo2:
+                        st.metric("✅ Análises Concluídas", len(resultados_analise))
+                    with col_resumo3:
+                        st.metric("🖼️ Processadas", len(uploaded_images))
+                    
+                    # Contexto aplicado no resumo
+                    if contexto_global and contexto_global.strip():
+                        st.info(f"**🎯 Contexto Aplicado em Todas as Análises:** {contexto_global}")
+                    
+                    # Botão para download do relatório consolidado
+                    if st.button("📥 Exportar Relatório Completo de Imagens", key="exportar_relatorio_imagens"):
+                        relatorio = f"""
+                        # RELATÓRIO DE VALIDAÇÃO DE IMAGENS
                         
-                        # Armazenar na sessão
-                        st.session_state.resultados_analise_imagem = resultados_analise
+                        **Agente:** {agente.get('nome', 'N/A')}
+                        **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
+                        **Total de Imagens:** {len(uploaded_images)}
+                        **Contexto Aplicado:** {contexto_global if contexto_global else 'Nenhum contexto adicional'}
+                        **Método de Análise:** {'Especializada por Múltiplos Especialistas' if st.session_state.analise_especializada_imagem else 'Tradicional'}
                         
-                        # Resumo executivo
-                        st.markdown("---")
-                        st.subheader("📋 Resumo Executivo de Imagens")
+                        ## RESUMO EXECUTIVO
+                        {chr(10).join([f"{idx+1}. {img.name}" for idx, img in enumerate(uploaded_images)])}
                         
-                        col_resumo1, col_resumo2, col_resumo3 = st.columns(3)
-                        with col_resumo1:
-                            st.metric("📊 Total de Imagens", len(uploaded_images_sorted))
-                        with col_resumo2:
-                            st.metric("✅ Análises Concluídas", len(resultados_analise))
-                        with col_resumo3:
-                            st.metric("🖼️ Processadas", len(uploaded_images_sorted))
+                        ## ANÁLISES INDIVIDUAIS
+                        {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_analise])}
+                        """
                         
-                        # Contexto aplicado no resumo
-                        if contexto_global and contexto_global.strip():
-                            st.info(f"**🎯 Contexto Aplicado em Todas as Análises:** {contexto_global}")
-                        
-                        # Botão para download do relatório consolidado
-                        if st.button("📥 Exportar Relatório Completo de Imagens", key="exportar_relatorio_imagens"):
-                            relatorio = f"""
-                            # RELATÓRIO DE VALIDAÇÃO DE IMAGENS
-                            
-                            **Agente:** {agente.get('nome', 'N/A')}
-                            **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                            **Total de Imagens:** {len(uploaded_images_sorted)}
-                            **Contexto Aplicado:** {contexto_global if contexto_global else 'Nenhum contexto adicional'}
-                            **Método de Análise:** {'Especializada por Múltiplos Especialistas' if st.session_state.analise_especializada_imagem else 'Tradicional'}
-                            
-                            ## RESUMO EXECUTIVO
-                            {chr(10).join([f"{idx+1}. {img.name}" for idx, img in enumerate(uploaded_images_sorted)])}
-                            
-                            ## ANÁLISES INDIVIDUAIS
-                            {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_analise])}
-                            """
-                            
-                            st.download_button(
-                                "💾 Baixar Relatório em TXT",
-                                data=relatorio,
-                                file_name=f"relatorio_validacao_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                                mime="text/plain"
-                            )
+                        st.download_button(
+                            "💾 Baixar Relatório em TXT",
+                            data=relatorio,
+                            file_name=f"relatorio_validacao_imagens_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                            mime="text/plain"
+                        )
             
             # Mostrar análises existentes da sessão
             elif st.session_state.resultados_analise_imagem:
                 st.info("📋 Análises anteriores encontradas. Use o botão 'Limpar Análises' para recomeçar.")
                 
                 for resultado in st.session_state.resultados_analise_imagem:
-                    # Verificar se é resultado de carrossel ou individual
-                    if isinstance(resultado, dict) and resultado.get('tipo') == 'carrossel':
-                        with st.expander(f"📱 Carrossel ({len(resultado.get('resultados_individual', []))} imagens) - Análise Salva", expanded=False):
-                            st.markdown(resultado['analise'])
-                            
-                            # Mostrar análises individuais se disponíveis
-                            if resultado.get('resultados_individual'):
-                                with st.expander("📷 Ver Análises Individuais", expanded=False):
-                                    for res in resultado['resultados_individual']:
-                                        st.markdown(f"### Imagem {res.get('indice', 'N/A')}")
-                                        st.markdown(res.get('analise', 'N/A')[:200] + "...")
-                    else:
-                        with st.expander(f"🖼️ {resultado.get('nome', 'Imagem')} - Análise Salva", expanded=False):
-                            st.markdown(resultado.get('analise', 'Nenhuma análise disponível'))
+                    with st.expander(f"🖼️ {resultado['nome']} - Análise Salva", expanded=False):
+                        st.markdown(resultado['analise'])
             
             else:
-                st.info("""
-                **📁 Como usar a Validação de Imagem:**
-                
-                1. **Carregue imagens** para análise (uma ou várias)
-                2. **Se for um carrossel**, marque a opção "Estas imagens fazem parte de um CARROSSEL"
-                3. **Configure** as opções de análise na seção de configurações
-                4. **Clique em "Validar Todas as Imagens"** para iniciar a análise
-                
-                **🎯 Análise de Carrossel (quando marcado):**
-                - **Storytelling**: Análise da progressão narrativa entre imagens
-                - **Consistência visual**: Harmonia entre cores e elementos
-                - **Contexto acumulado**: Cada imagem é analisada com conhecimento das anteriores
-                - **Ordem lógica**: Imagens são organizadas numericamente/alfabeticamente
-                
-                **🔍 Análise Individual (quando não é carrossel):**
-                - Cada imagem é analisada separadamente
-                - Foco em conformidade com branding
-                - Recomendações específicas por imagem
-                
-                **📝 Dica para carrossel:**
-                - Nomeie as imagens com números para garantir ordem correta (ex: "01_intro.jpg", "02_desenvolvimento.jpg", etc.)
-                - O sistema organizará automaticamente por ordem numérica e alfabética
-                """)
+                st.info("📁 Carregue uma ou mais imagens para iniciar a validação de branding")
         
         # --- SUBTAB: VALIDAÇÃO DE VÍDEO ---
         with subtab_video:
@@ -5810,7 +5335,7 @@ Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando
                                 """
                                 
                                 if modelo_legenda == "Gemini":
-                                    modelo_visao = genai.GenerativeModel('gemini-2.5-flash')
+                                    modelo_visao = genai.GenerativeModel('gemini-2.0-flash')
                                     resposta_legenda = modelo_visao.generate_content([
                                         prompt_legenda,
                                         {"mime_type": imagem_upload.type, "data": imagem_upload.getvalue()}
@@ -7726,4 +7251,4 @@ with st.sidebar:
 
 # --- Rodapé ---
 st.markdown("---")
-st.caption(f"🤖 Agente Social v2.5 | Usuário: {get_current_user()} | {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"🤖 Agente Social v2.0 | Usuário: {get_current_user()} | {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}")
