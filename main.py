@@ -49,8 +49,8 @@ else:
 gemini_api_key = os.getenv("GEM_API_KEY")
 if gemini_api_key:
     genai.configure(api_key=gemini_api_key)
-    modelo_vision = genai.GenerativeModel("gemini-2.0-flash", generation_config={"temperature": 0.0})
-    modelo_texto = genai.GenerativeModel("gemini-2.0-flash")
+    modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.0})
+    modelo_texto = genai.GenerativeModel("gemini-2.5-flash")
 else:
     st.error("GEM_API_KEY não encontrada nas variáveis de ambiente")
     modelo_vision = None
@@ -3536,7 +3536,7 @@ with tab_mapping["✅ Validação Unificada"]:
                         "Sensibilidade (segundos):",
                         min_value=0.5,
                         max_value=5.0,
-                        value=2.0,
+                        value=2.5,
                         step=0.5,
                         help="Tolerância para considerar que legenda e áudio estão sincronizados"
                     )
@@ -5666,7 +5666,7 @@ Forneça uma análise detalhada baseada no conteúdo dessas URLs, sempre citando
                                 """
                                 
                                 if modelo_legenda == "Gemini":
-                                    modelo_visao = genai.GenerativeModel('gemini-2.0-flash')
+                                    modelo_visao = genai.GenerativeModel('gemini-2.5-flash')
                                     resposta_legenda = modelo_visao.generate_content([
                                         prompt_legenda,
                                         {"mime_type": imagem_upload.type, "data": imagem_upload.getvalue()}
@@ -7582,4 +7582,4 @@ with st.sidebar:
 
 # --- Rodapé ---
 st.markdown("---")
-st.caption(f"🤖 Agente Social v2.0 | Usuário: {get_current_user()} | {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"🤖 Agente Social v2.5 | Usuário: {get_current_user()} | {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}")
