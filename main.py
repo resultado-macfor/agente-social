@@ -4903,18 +4903,17 @@ with tab_mapping["✅ Validação Unificada"]:
                 **📝 Dica:** Nomeie as imagens com números para ordem correta (ex: "01.jpg", "02.jpg")
                 """)
         
-        # --- SUBTAB: VALIDAÇÃO DE VÍDEO ---
         with subtab_video:
             st.subheader("🎬 Validação de Vídeo")
-            
+
             # Botão para limpar análises de vídeo
             if st.button("🗑️ Limpar Análises de Vídeo", key="limpar_analises_video"):
                 st.session_state.resultados_analise_video = []
                 st.rerun()
-            
+
             # Container principal
             col_upload, col_config = st.columns([2, 1])
-            
+
             with col_upload:
                 uploaded_videos = st.file_uploader(
                     "Carregue um ou mais vídeos para análise",
@@ -4922,26 +4921,26 @@ with tab_mapping["✅ Validação Unificada"]:
                     key="video_upload_validacao",
                     accept_multiple_files=True
                 )
-            
+
             with col_config:
                 st.markdown("### ⚙️ Configurações de Vídeo")
                 contexto_video_especifico = st.text_area(
-                    "**🎯 Contexto específico para vídeos:**", 
-                    height=120, 
+                    "**🎯 Contexto específico para vídeos:**",
+                    height=120,
                     key="video_context_especifico",
                     placeholder="Contexto adicional específico para análise de vídeos (opcional)..."
                 )
-                
+
                 analise_especializada_video = st.checkbox(
                     "Análise especializada por áreas (recomendado)",
                     value=True,  # Sempre ativo por padrão
                     help="Usa múltiplos especialistas em vídeo para análise mais precisa",
                     key="analise_especializada_video_check"
                 )
-                
+
                 # Definir todos os especialistas disponíveis
                 todos_analisadores_video = ['narrativa_estrutura', 'qualidade_audio', 'visual_cinematografia', 'branding_consistencia', 'engajamento_eficacia', 'sincronizacao_audio_legendas']
-                
+
                 # SEMPRE selecionar todos os especialistas por padrão
                 analisadores_selecionados_video = st.multiselect(
                     "Especialistas de vídeo a incluir:",
@@ -4949,7 +4948,7 @@ with tab_mapping["✅ Validação Unificada"]:
                     default=todos_analisadores_video,  # TODOS selecionados por padrão
                     format_func=lambda x: {
                         'narrativa_estrutura': '📖 Narrativa e Estrutura',
-                        'qualidade_audio': '🔊 Qualidade de Áudio', 
+                        'qualidade_audio': '🔊 Qualidade de Áudio',
                         'visual_cinematografia': '🎥 Visual e Cinematografia',
                         'sincronizacao_audio_legendas': '🎯 Sincronização Áudio-Legendas',
                         'branding_consistencia': '🏢 Branding e Consistência',
@@ -4957,70 +4956,70 @@ with tab_mapping["✅ Validação Unificada"]:
                     }[x],
                     key="analisadores_video_select"
                 )
-                
+
                 # Botão para selecionar automaticamente todos os especialistas
                 if st.button("✅ Selecionar Todos os Especialistas", key="select_all_video_analysts"):
                     st.session_state.analisadores_selecionados_video = todos_analisadores_video
                     st.rerun()
-            
+
             if uploaded_videos:
                 st.success(f"✅ {len(uploaded_videos)} vídeo(s) carregado(s)")
-                
+
                 # Contexto aplicado
                 if contexto_global and contexto_global.strip():
                     st.info(f"**🎯 Contexto Global Aplicado:** {contexto_global}")
                 if contexto_video_especifico and contexto_video_especifico.strip():
                     st.info(f"**🎯 Contexto Específico Aplicado:** {contexto_video_especifico}")
-                
+
                 # Exibir informações dos vídeos
                 st.markdown("### 📊 Informações dos Vídeos")
-                
+
                 for idx, video in enumerate(uploaded_videos):
                     col_vid, col_info, col_actions = st.columns([2, 2, 1])
-                    
+
                     with col_vid:
                         st.write(f"**{idx+1}. {video.name}**")
                         st.caption(f"Tipo: {video.type} | Tamanho: {video.size / (1024*1024):.1f} MB")
-                    
+
                     with col_info:
                         st.write("📏 Duração: A ser detectada")
                         st.write("🎞️ Resolução: A ser detectada")
-                    
+
                     with col_actions:
                         if st.button("🔍 Preview", key=f"preview_{idx}"):
                             st.video(video, format=f"video/{video.type.split('/')[-1]}")
-                
+
                 # Botão para validar todos os vídeos
                 if st.button("🎬 Validar Todos os Vídeos", type="primary", key="validar_videos_multiplas"):
-                    
+
                     resultados_video = []
-                    
+
                     for idx, uploaded_video in enumerate(uploaded_videos):
                         with st.spinner(f'Analisando vídeo {idx+1} de {len(uploaded_videos)}: {uploaded_video.name}...'):
                             try:
                                 # Container para cada vídeo
                                 with st.container():
                                     st.markdown("---")
-                                    
+
                                     # Header do vídeo
                                     col_header, col_stats = st.columns([3, 1])
-                                    
+
                                     with col_header:
                                         st.subheader(f"🎬 {uploaded_video.name}")
-                                    
+
                                     with col_stats:
                                         st.metric("📊 Status", "Processando")
-                                    
+
                                     # Contexto aplicado para este vídeo
                                     if contexto_global and contexto_global.strip():
                                         st.info(f"**🎯 Contexto Aplicado:** {contexto_global}")
                                     if contexto_video_especifico and contexto_video_especifico.strip():
                                         st.info(f"**🎯 Contexto Específico:** {contexto_video_especifico}")
-                                    
+
                                     # Preview do vídeo
                                     with st.expander("👀 Preview do Vídeo", expanded=False):
                                         st.video(uploaded_video, format=f"video/{uploaded_video.type.split('/')[-1]}")
-                                    
+
                                     # Análise detalhada
                                     with st.expander(f"📋 Análise Completa - {uploaded_video.name}", expanded=True):
                                         try:
@@ -5032,7 +5031,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 {agente['base_conhecimento']}
                                                 ###END DIRETRIZES DE BRANDING DO AGENTE###
                                                 """
-                                            
+
                                             # Adicionar contexto global se fornecido
                                             contexto_completo = contexto_agente
                                             if contexto_global and contexto_global.strip():
@@ -5041,7 +5040,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 {contexto_global}
                                                 ###END CONTEXTO GLOBAL DO USUARIO###
                                                 """
-                                            
+
                                             # Adicionar contexto específico de vídeo se fornecido
                                             if contexto_video_especifico and contexto_video_especifico.strip():
                                                 contexto_completo += f"""
@@ -5049,55 +5048,55 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 {contexto_video_especifico}
                                                 ###END CONTEXTO ESPECÍFICO PARA VÍDEOS###
                                                 """
-                                            
+
                                             # SEMPRE usar análise especializada com TODOS os especialistas selecionados
                                             st.info("🎯 **Executando análise especializada por TODOS os especialistas de vídeo...**")
-                                            
+
                                             # Atualizar session state com os analisadores selecionados
                                             st.session_state.analisadores_selecionados_video = analisadores_selecionados_video
-                                            
+
                                             # Verificar se há especialistas selecionados
                                             if not analisadores_selecionados_video:
                                                 st.warning("⚠️ Nenhum especialista selecionado. Selecionando todos automaticamente.")
                                                 analisadores_selecionados_video = todos_analisadores_video
                                                 st.session_state.analisadores_selecionados_video = todos_analisadores_video
-                                            
+
                                             # Criar analisadores especialistas
                                             analisadores_config = criar_analisadores_video(contexto_agente, contexto_global, contexto_video_especifico)
-                                            
+
                                             # Usar SEMPRE todos os especialistas selecionados
-                                            analisadores_filtrados = {k: v for k, v in analisadores_config.items() 
+                                            analisadores_filtrados = {k: v for k, v in analisadores_config.items()
                                                                      if k in analisadores_selecionados_video}
-                                            
+
                                             # Mostrar quais especialistas estão sendo executados
                                             st.success(f"**Especialistas ativos:** {len(analisadores_filtrados)}")
                                             for analista_key in analisadores_filtrados.keys():
                                                 emoji_nome = {
                                                     'narrativa_estrutura': '📖 Narrativa e Estrutura',
                                                     'qualidade_audio': '🔊 Qualidade de Áudio',
-                                                    'visual_cinematografia': '🎥 Visual e Cinematografia', 
+                                                    'visual_cinematografia': '🎥 Visual e Cinematografia',
                                                     'sincronizacao_audio_legendas': '🎯 Sincronização Áudio-Legendas',
                                                     'branding_consistencia': '🏢 Branding e Consistência',
                                                     'engajamento_eficacia': '📈 Engajamento e Eficácia'
                                                 }.get(analista_key, analista_key)
                                                 st.write(f"  - {emoji_nome}")
-                                            
+
                                             # Executar análises especializadas
                                             resultados_especialistas = executar_analise_video_especializada(
-                                                uploaded_video, 
-                                                uploaded_video.name, 
+                                                uploaded_video,
+                                                uploaded_video.name,
                                                 analisadores_filtrados
                                             )
-                                            
+
                                             # Gerar relatório consolidado
                                             relatorio_consolidado = gerar_relatorio_video_consolidado(
-                                                resultados_especialistas, 
+                                                resultados_especialistas,
                                                 uploaded_video.name,
                                                 uploaded_video.type
                                             )
-                                            
+
                                             st.markdown(relatorio_consolidado, unsafe_allow_html=True)
-                                            
+
                                             # Armazenar resultado
                                             resultados_video.append({
                                                 'nome': uploaded_video.name,
@@ -5107,7 +5106,7 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 'tamanho': uploaded_video.size,
                                                 'especialistas_utilizados': list(analisadores_filtrados.keys())
                                             })
-                                            
+
                                         except Exception as e:
                                             st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
                                             resultados_video.append({
@@ -5118,17 +5117,17 @@ with tab_mapping["✅ Validação Unificada"]:
                                                 'tamanho': uploaded_video.size,
                                                 'especialistas_utilizados': []
                                             })
-                                    
+
                             except Exception as e:
                                 st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
-                    
+
                     # Armazenar resultados na sessão
                     st.session_state.resultados_analise_video = resultados_video
-                    
+
                     # Resumo executivo dos vídeos
                     st.markdown("---")
                     st.subheader("📋 Resumo Executivo - Vídeos")
-                    
+
                     col_vid1, col_vid2, col_vid3 = st.columns(3)
                     with col_vid1:
                         st.metric("🎬 Total de Vídeos", len(uploaded_videos))
@@ -5137,21 +5136,21 @@ with tab_mapping["✅ Validação Unificada"]:
                     with col_vid3:
                         total_especialistas = sum(len(res.get('especialistas_utilizados', [])) for res in resultados_video)
                         st.metric("🎯 Especialistas Executados", total_especialistas)
-                    
+
                     # Contexto aplicado no resumo
                     if contexto_global and contexto_global.strip():
                         st.info(f"**🎯 Contexto Global Aplicado:** {contexto_global}")
                     if contexto_video_especifico and contexto_video_especifico.strip():
                         st.info(f"**🎯 Contexto Específico Aplicado:** {contexto_video_especifico}")
-                    
+
                     # Mostrar especialistas utilizados
                     st.info(f"**🔧 Especialistas utilizados na análise:** {', '.join([analisadores_config[k]['nome'] for k in analisadores_selecionados_video if k in analisadores_config])}")
-                    
+
                     # Botão para download do relatório
                     if st.button("📥 Exportar Relatório de Vídeos", key="exportar_relatorio_videos"):
                         relatorio_videos = f"""
                         # RELATÓRIO DE VALIDAÇÃO DE VÍDEOS
-                        
+
                         **Agente:** {agente.get('nome', 'N/A')}
                         **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
                         **Total de Vídeos:** {len(uploaded_videos)}
@@ -5159,31 +5158,31 @@ with tab_mapping["✅ Validação Unificada"]:
                         **Contexto Específico:** {contexto_video_especifico if contexto_video_especifico else 'Nenhum'}
                         **Método de Análise:** Análise Especializada por Múltiplos Especialistas
                         **Especialistas Utilizados:** {', '.join(analisadores_selecionados_video)}
-                        
+
                         ## VÍDEOS ANALISADOS:
                         {chr(10).join([f"{idx+1}. {vid.name} ({vid.type}) - {vid.size/(1024*1024):.1f} MB" for idx, vid in enumerate(uploaded_videos)])}
-                        
+
                         ## ANÁLISES INDIVIDUAIS:
                         {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_video])}
                         """
-                        
+
                         st.download_button(
                             "💾 Baixar Relatório em TXT",
                             data=relatorio_videos,
                             file_name=f"relatorio_validacao_videos_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
                             mime="text/plain"
                         )
-            
+
             # Mostrar análises existentes da sessão
             elif st.session_state.get('resultados_analise_video'):
                 st.info("📋 Análises anteriores encontradas. Use o botão 'Limpar Análises' para recomeçar.")
-                
+
                 for resultado in st.session_state.resultados_analise_video:
                     with st.expander(f"🎬 {resultado['nome']} - Análise Salva", expanded=False):
                         st.markdown(resultado['analise'])
                         if resultado.get('especialistas_utilizados'):
                             st.caption(f"**Especialistas utilizados:** {', '.join(resultado['especialistas_utilizados'])}")
-            
+
             else:
                 st.info("🎬 Carregue um ou mais vídeos para iniciar a validação")
                 
