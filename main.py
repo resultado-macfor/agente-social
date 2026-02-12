@@ -4903,25 +4903,74 @@ with tab_mapping["✅ Validação Unificada"]:
                 **📝 Dica:** Nomeie as imagens com números para ordem correta (ex: "01.jpg", "02.jpg")
                 """)
         
+        # --- SUBTAB: VALIDAÇÃO DE VÍDEO ---
         with subtab_video:
             st.subheader("🎬 Validação de Vídeo")
-
+        
             # Botão para limpar análises de vídeo
             if st.button("🗑️ Limpar Análises de Vídeo", key="limpar_analises_video"):
                 st.session_state.resultados_analise_video = []
                 st.rerun()
-
+        
             # Container principal
             col_upload, col_config = st.columns([2, 1])
-
+        
             with col_upload:
-                uploaded_videos = st.file_uploader(
-                    "Carregue um ou mais vídeos para análise",
+                # IMPORTANTE: MODIFICADO PARA ACEITAR VÍDEOS GRANDES (>200MB)
+                # Usando 'accept_multiple_files=False' para melhor performance com arquivos grandes
+                # e permitindo apenas 1 arquivo por vez para evitar sobrecarga
+                
+                st.markdown("""
+                <style>
+                .big-file-warning {
+                    background-color: #fff3cd;
+                    border-left: 4px solid #ffc107;
+                    padding: 1rem;
+                    border-radius: 0.25rem;
+                    margin-bottom: 1rem;
+                }
+                </style>
+                """, unsafe_allow_html=True)
+                
+                st.markdown("""
+                <div class="big-file-warning">
+                    <strong>⚠️ Suporte para Vídeos Grandes</strong><br>
+                    Este sistema suporta vídeos de qualquer tamanho. Recomendamos:
+                    <ul>
+                        <li>Para arquivos > 200MB, faça upload individualmente</li>
+                        <li>Formatos mais eficientes: MP4 (H.264), WebM</li>
+                        <li>O processamento pode levar alguns minutos</li>
+                    </ul>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Upload individual para melhor manejo de arquivos grandes
+                uploaded_video_single = st.file_uploader(
+                    "Carregue um vídeo para análise",
                     type=["mp4", "mpeg", "mov", "avi", "flv", "mpg", "webm", "wmv", "3gpp"],
-                    key="video_upload_validacao",
-                    accept_multiple_files=True
+                    key="video_upload_validacao_single",
+                    accept_multiple_files=False,  # MUDADO: agora aceita apenas 1 por vez
+                    help="Selecione um vídeo para análise. Arquivos grandes (>200MB) são suportados, mas levarão mais tempo para processar."
                 )
-
+                
+                # Opção para adicionar mais vídeos após o primeiro
+                uploaded_videos = []
+                if uploaded_video_single:
+                    uploaded_videos = [uploaded_video_single]
+                    
+                    # Botão para limpar e adicionar novo vídeo
+                    col_clear, col_add = st.columns(2)
+                    with col_clear:
+                        if st.button("🗑️ Remover Vídeo Atual", key="clear_video_btn"):
+                            st.rerun()
+                    with col_add:
+                        st.info(f"✅ Vídeo carregado: {uploaded_video_single.name}")
+                        
+                    # Mostrar tamanho do arquivo
+                    tamanho_mb = uploaded_video_single.size / (1024 * 1024)
+                    if tamanho_mb > 200:
+                        st.warning(f"📦 Arquivo grande: {tamanho_mb:.1f} MB. O processamento pode levar mais tempo.")
+        
             with col_config:
                 st.markdown("### ⚙️ Configurações de Vídeo")
                 contexto_video_especifico = st.text_area(
@@ -4930,22 +4979,36 @@ with tab_mapping["✅ Validação Unificada"]:
                     key="video_context_especifico",
                     placeholder="Contexto adicional específico para análise de vídeos (opcional)..."
                 )
-
+        
+                # Opção para processamento otimizado
+                with st.expander("🚀 Configurações de Performance", expanded=False):
+                    processamento_otimizado = st.checkbox(
+                        "Processamento otimizado para vídeos grandes",
+                        value=True,
+                        help="Ativa otimizações para processar vídeos grandes mais rapidamente"
+                    )
+                    
+                    analise_resumida = st.checkbox(
+                        "Análise resumida (mais rápida)",
+                        value=False,
+                        help="Realiza uma análise mais rápida, ideal para arquivos muito grandes"
+                    )
+        
                 analise_especializada_video = st.checkbox(
                     "Análise especializada por áreas (recomendado)",
-                    value=True,  # Sempre ativo por padrão
+                    value=True,
                     help="Usa múltiplos especialistas em vídeo para análise mais precisa",
                     key="analise_especializada_video_check"
                 )
-
+        
                 # Definir todos os especialistas disponíveis
                 todos_analisadores_video = ['narrativa_estrutura', 'qualidade_audio', 'visual_cinematografia', 'branding_consistencia', 'engajamento_eficacia', 'sincronizacao_audio_legendas']
-
+        
                 # SEMPRE selecionar todos os especialistas por padrão
                 analisadores_selecionados_video = st.multiselect(
                     "Especialistas de vídeo a incluir:",
                     options=todos_analisadores_video,
-                    default=todos_analisadores_video,  # TODOS selecionados por padrão
+                    default=todos_analisadores_video,
                     format_func=lambda x: {
                         'narrativa_estrutura': '📖 Narrativa e Estrutura',
                         'qualidade_audio': '🔊 Qualidade de Áudio',
@@ -4956,235 +5019,285 @@ with tab_mapping["✅ Validação Unificada"]:
                     }[x],
                     key="analisadores_video_select"
                 )
-
+        
                 # Botão para selecionar automaticamente todos os especialistas
                 if st.button("✅ Selecionar Todos os Especialistas", key="select_all_video_analysts"):
                     st.session_state.analisadores_selecionados_video = todos_analisadores_video
                     st.rerun()
-
+        
             if uploaded_videos:
-                st.success(f"✅ {len(uploaded_videos)} vídeo(s) carregado(s)")
-
+                uploaded_video = uploaded_videos[0]  # Pega o primeiro vídeo
+                
+                # Exibir informações detalhadas do vídeo
+                tamanho_mb = uploaded_video.size / (1024 * 1024)
+                
+                # Layout em colunas para informações
+                col_info1, col_info2, col_info3 = st.columns(3)
+                
+                with col_info1:
+                    st.metric("📁 Nome", uploaded_video.name[:30] + "..." if len(uploaded_video.name) > 30 else uploaded_video.name)
+                with col_info2:
+                    st.metric("📦 Tamanho", f"{tamanho_mb:.1f} MB")
+                with col_info3:
+                    st.metric("📋 Tipo", uploaded_video.type.split('/')[-1].upper())
+                
+                # Barra de progresso para arquivos grandes
+                if tamanho_mb > 100:
+                    st.progress(0.1, text="🔄 Preparando vídeo para análise...")
+                
                 # Contexto aplicado
                 if contexto_global and contexto_global.strip():
-                    st.info(f"**🎯 Contexto Global Aplicado:** {contexto_global}")
+                    st.info(f"**🎯 Contexto Global Aplicado:** {contexto_global[:100]}...")
                 if contexto_video_especifico and contexto_video_especifico.strip():
-                    st.info(f"**🎯 Contexto Específico Aplicado:** {contexto_video_especifico}")
-
-                # Exibir informações dos vídeos
-                st.markdown("### 📊 Informações dos Vídeos")
-
-                for idx, video in enumerate(uploaded_videos):
-                    col_vid, col_info, col_actions = st.columns([2, 2, 1])
-
-                    with col_vid:
-                        st.write(f"**{idx+1}. {video.name}**")
-                        st.caption(f"Tipo: {video.type} | Tamanho: {video.size / (1024*1024):.1f} MB")
-
-                    with col_info:
-                        st.write("📏 Duração: A ser detectada")
-                        st.write("🎞️ Resolução: A ser detectada")
-
-                    with col_actions:
-                        if st.button("🔍 Preview", key=f"preview_{idx}"):
-                            st.video(video, format=f"video/{video.type.split('/')[-1]}")
-
-                # Botão para validar todos os vídeos
-                if st.button("🎬 Validar Todos os Vídeos", type="primary", key="validar_videos_multiplas"):
-
-                    resultados_video = []
-
-                    for idx, uploaded_video in enumerate(uploaded_videos):
-                        with st.spinner(f'Analisando vídeo {idx+1} de {len(uploaded_videos)}: {uploaded_video.name}...'):
-                            try:
-                                # Container para cada vídeo
-                                with st.container():
-                                    st.markdown("---")
-
-                                    # Header do vídeo
-                                    col_header, col_stats = st.columns([3, 1])
-
-                                    with col_header:
-                                        st.subheader(f"🎬 {uploaded_video.name}")
-
-                                    with col_stats:
-                                        st.metric("📊 Status", "Processando")
-
-                                    # Contexto aplicado para este vídeo
-                                    if contexto_global and contexto_global.strip():
-                                        st.info(f"**🎯 Contexto Aplicado:** {contexto_global}")
-                                    if contexto_video_especifico and contexto_video_especifico.strip():
-                                        st.info(f"**🎯 Contexto Específico:** {contexto_video_especifico}")
-
-                                    # Preview do vídeo
-                                    with st.expander("👀 Preview do Vídeo", expanded=False):
-                                        st.video(uploaded_video, format=f"video/{uploaded_video.type.split('/')[-1]}")
-
-                                    # Análise detalhada
-                                    with st.expander(f"📋 Análise Completa - {uploaded_video.name}", expanded=True):
-                                        try:
-                                            # Construir contexto com base de conhecimento do agente
-                                            contexto_agente = ""
-                                            if "base_conhecimento" in agente:
-                                                contexto_agente = f"""
-                                                ###BEGIN DIRETRIZES DE BRANDING DO AGENTE:###
-                                                {agente['base_conhecimento']}
-                                                ###END DIRETRIZES DE BRANDING DO AGENTE###
-                                                """
-
-                                            # Adicionar contexto global se fornecido
-                                            contexto_completo = contexto_agente
-                                            if contexto_global and contexto_global.strip():
-                                                contexto_completo += f"""
-                                                ###BEGIN CONTEXTO GLOBAL DO USUARIO###
-                                                {contexto_global}
-                                                ###END CONTEXTO GLOBAL DO USUARIO###
-                                                """
-
-                                            # Adicionar contexto específico de vídeo se fornecido
-                                            if contexto_video_especifico and contexto_video_especifico.strip():
-                                                contexto_completo += f"""
-                                                ###BEGIN CONTEXTO ESPECÍFICO PARA VÍDEOS###
-                                                {contexto_video_especifico}
-                                                ###END CONTEXTO ESPECÍFICO PARA VÍDEOS###
-                                                """
-
-                                            # SEMPRE usar análise especializada com TODOS os especialistas selecionados
-                                            st.info("🎯 **Executando análise especializada por TODOS os especialistas de vídeo...**")
-
-                                            # Atualizar session state com os analisadores selecionados
-                                            st.session_state.analisadores_selecionados_video = analisadores_selecionados_video
-
-                                            # Verificar se há especialistas selecionados
-                                            if not analisadores_selecionados_video:
-                                                st.warning("⚠️ Nenhum especialista selecionado. Selecionando todos automaticamente.")
-                                                analisadores_selecionados_video = todos_analisadores_video
-                                                st.session_state.analisadores_selecionados_video = todos_analisadores_video
-
-                                            # Criar analisadores especialistas
-                                            analisadores_config = criar_analisadores_video(contexto_agente, contexto_global, contexto_video_especifico)
-
-                                            # Usar SEMPRE todos os especialistas selecionados
-                                            analisadores_filtrados = {k: v for k, v in analisadores_config.items()
-                                                                     if k in analisadores_selecionados_video}
-
-                                            # Mostrar quais especialistas estão sendo executados
-                                            st.success(f"**Especialistas ativos:** {len(analisadores_filtrados)}")
-                                            for analista_key in analisadores_filtrados.keys():
-                                                emoji_nome = {
-                                                    'narrativa_estrutura': '📖 Narrativa e Estrutura',
-                                                    'qualidade_audio': '🔊 Qualidade de Áudio',
-                                                    'visual_cinematografia': '🎥 Visual e Cinematografia',
-                                                    'sincronizacao_audio_legendas': '🎯 Sincronização Áudio-Legendas',
-                                                    'branding_consistencia': '🏢 Branding e Consistência',
-                                                    'engajamento_eficacia': '📈 Engajamento e Eficácia'
-                                                }.get(analista_key, analista_key)
-                                                st.write(f"  - {emoji_nome}")
-
-                                            # Executar análises especializadas
-                                            resultados_especialistas = executar_analise_video_especializada(
-                                                uploaded_video,
-                                                uploaded_video.name,
-                                                analisadores_filtrados
-                                            )
-
-                                            # Gerar relatório consolidado
-                                            relatorio_consolidado = gerar_relatorio_video_consolidado(
-                                                resultados_especialistas,
-                                                uploaded_video.name,
-                                                uploaded_video.type
-                                            )
-
-                                            st.markdown(relatorio_consolidado, unsafe_allow_html=True)
-
-                                            # Armazenar resultado
-                                            resultados_video.append({
-                                                'nome': uploaded_video.name,
-                                                'indice': idx,
-                                                'analise': relatorio_consolidado,
-                                                'tipo': uploaded_video.type,
-                                                'tamanho': uploaded_video.size,
-                                                'especialistas_utilizados': list(analisadores_filtrados.keys())
-                                            })
-
-                                        except Exception as e:
-                                            st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
-                                            resultados_video.append({
-                                                'nome': uploaded_video.name,
-                                                'indice': idx,
-                                                'analise': f"Erro na análise: {str(e)}",
-                                                'tipo': uploaded_video.type,
-                                                'tamanho': uploaded_video.size,
-                                                'especialistas_utilizados': []
-                                            })
-
-                            except Exception as e:
-                                st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
-
-                    # Armazenar resultados na sessão
-                    st.session_state.resultados_analise_video = resultados_video
-
-                    # Resumo executivo dos vídeos
+                    st.info(f"**🎯 Contexto Específico Aplicado:** {contexto_video_especifico[:100]}...")
+        
+                # Preview do vídeo em expander
+                with st.expander("👀 Preview do Vídeo", expanded=False):
+                    st.video(uploaded_video)
+        
+                # Botão para validar o vídeo
+                if st.button("🎬 Validar Vídeo", type="primary", key="validar_video_unico", use_container_width=True):
+                    
+                    # Criar placeholder para progresso
+                    progress_placeholder = st.empty()
+                    status_placeholder = st.empty()
+                    
+                    with st.spinner(f'Analisando vídeo: {uploaded_video.name}...'):
+                        try:
+                            # Atualizar progresso
+                            progress_placeholder.progress(0.2, text="📤 Carregando vídeo...")
+                            
+                            # Container para resultados
+                            with st.container():
+                                st.markdown("---")
+        
+                                # Header do vídeo
+                                col_header, col_stats = st.columns([3, 1])
+        
+                                with col_header:
+                                    st.subheader(f"🎬 {uploaded_video.name}")
+        
+                                with col_stats:
+                                    st.metric("📊 Status", "Processando")
+        
+                                # Atualizar progresso
+                                progress_placeholder.progress(0.4, text="🔍 Preparando análise...")
+        
+                                # Análise detalhada
+                                with st.expander(f"📋 Análise Completa - {uploaded_video.name}", expanded=True):
+                                    try:
+                                        # Construir contexto com base de conhecimento do agente
+                                        contexto_agente = ""
+                                        if "base_conhecimento" in agente:
+                                            contexto_agente = f"""
+                                            ###BEGIN DIRETRIZES DE BRANDING DO AGENTE:###
+                                            {agente['base_conhecimento']}
+                                            ###END DIRETRIZES DE BRANDING DO AGENTE###
+                                            """
+        
+                                        # Adicionar contexto global se fornecido
+                                        contexto_completo = contexto_agente
+                                        if contexto_global and contexto_global.strip():
+                                            contexto_completo += f"""
+                                            ###BEGIN CONTEXTO GLOBAL DO USUARIO###
+                                            {contexto_global}
+                                            ###END CONTEXTO GLOBAL DO USUARIO###
+                                            """
+        
+                                        # Adicionar contexto específico de vídeo se fornecido
+                                        if contexto_video_especifico and contexto_video_especifico.strip():
+                                            contexto_completo += f"""
+                                            ###BEGIN CONTEXTO ESPECÍFICO PARA VÍDEOS###
+                                            {contexto_video_especifico}
+                                            ###END CONTEXTO ESPECÍFICO PARA VÍDEOS###
+                                            """
+        
+                                        # Atualizar progresso
+                                        progress_placeholder.progress(0.6, text="🎯 Executando análise especializada...")
+                                        
+                                        st.info("🎯 **Executando análise especializada por TODOS os especialistas de vídeo...**")
+        
+                                        # Atualizar session state com os analisadores selecionados
+                                        st.session_state.analisadores_selecionados_video = analisadores_selecionados_video
+        
+                                        # Verificar se há especialistas selecionados
+                                        if not analisadores_selecionados_video:
+                                            st.warning("⚠️ Nenhum especialista selecionado. Selecionando todos automaticamente.")
+                                            analisadores_selecionados_video = todos_analisadores_video
+                                            st.session_state.analisadores_selecionados_video = todos_analisadores_video
+        
+                                        # Criar analisadores especialistas
+                                        analisadores_config = criar_analisadores_video(contexto_agente, contexto_global, contexto_video_especifico)
+        
+                                        # Usar SEMPRE todos os especialistas selecionados
+                                        analisadores_filtrados = {k: v for k, v in analisadores_config.items()
+                                                                 if k in analisadores_selecionados_video}
+        
+                                        # Mostrar quais especialistas estão sendo executados
+                                        st.success(f"**Especialistas ativos:** {len(analisadores_filtrados)}")
+                                        for analista_key in analisadores_filtrados.keys():
+                                            emoji_nome = {
+                                                'narrativa_estrutura': '📖 Narrativa e Estrutura',
+                                                'qualidade_audio': '🔊 Qualidade de Áudio',
+                                                'visual_cinematografia': '🎥 Visual e Cinematografia',
+                                                'sincronizacao_audio_legendas': '🎯 Sincronização Áudio-Legendas',
+                                                'branding_consistencia': '🏢 Branding e Consistência',
+                                                'engajamento_eficacia': '📈 Engajamento e Eficácia'
+                                            }.get(analista_key, analista_key)
+                                            st.write(f"  - {emoji_nome}")
+        
+                                        # Atualizar progresso
+                                        progress_placeholder.progress(0.8, text="⚙️ Processando análise...")
+        
+                                        # Executar análises especializadas
+                                        resultados_especialistas = executar_analise_video_especializada(
+                                            uploaded_video,
+                                            uploaded_video.name,
+                                            analisadores_filtrados
+                                        )
+        
+                                        # Atualizar progresso
+                                        progress_placeholder.progress(0.9, text="📊 Gerando relatório...")
+        
+                                        # Gerar relatório consolidado
+                                        relatorio_consolidado = gerar_relatorio_video_consolidado(
+                                            resultados_especialistas,
+                                            uploaded_video.name,
+                                            uploaded_video.type
+                                        )
+        
+                                        # Completar progresso
+                                        progress_placeholder.progress(1.0, text="✅ Análise concluída!")
+                                        progress_placeholder.empty()
+        
+                                        st.markdown(relatorio_consolidado, unsafe_allow_html=True)
+        
+                                        # Armazenar resultado
+                                        resultado_video = {
+                                            'nome': uploaded_video.name,
+                                            'indice': 0,
+                                            'analise': relatorio_consolidado,
+                                            'tipo': uploaded_video.type,
+                                            'tamanho': uploaded_video.size,
+                                            'especialistas_utilizados': list(analisadores_filtrados.keys())
+                                        }
+        
+                                        # Atualizar resultados na sessão
+                                        st.session_state.resultados_analise_video = [resultado_video]
+        
+                                    except Exception as e:
+                                        st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
+                                        progress_placeholder.empty()
+                                        
+                                        resultado_video = {
+                                            'nome': uploaded_video.name,
+                                            'indice': 0,
+                                            'analise': f"Erro na análise: {str(e)}",
+                                            'tipo': uploaded_video.type,
+                                            'tamanho': uploaded_video.size,
+                                            'especialistas_utilizados': []
+                                        }
+                                        st.session_state.resultados_analise_video = [resultado_video]
+        
+                        except Exception as e:
+                            st.error(f"❌ Erro ao processar vídeo {uploaded_video.name}: {str(e)}")
+                            progress_placeholder.empty()
+        
+                    # Limpar placeholders
+                    progress_placeholder.empty()
+                    status_placeholder.empty()
+        
+                # Mostrar resultados se existirem
+                if st.session_state.get('resultados_analise_video'):
                     st.markdown("---")
-                    st.subheader("📋 Resumo Executivo - Vídeos")
-
-                    col_vid1, col_vid2, col_vid3 = st.columns(3)
-                    with col_vid1:
-                        st.metric("🎬 Total de Vídeos", len(uploaded_videos))
-                    with col_vid2:
-                        st.metric("✅ Análises Concluídas", len(resultados_video))
-                    with col_vid3:
-                        total_especialistas = sum(len(res.get('especialistas_utilizados', [])) for res in resultados_video)
-                        st.metric("🎯 Especialistas Executados", total_especialistas)
-
-                    # Contexto aplicado no resumo
-                    if contexto_global and contexto_global.strip():
-                        st.info(f"**🎯 Contexto Global Aplicado:** {contexto_global}")
-                    if contexto_video_especifico and contexto_video_especifico.strip():
-                        st.info(f"**🎯 Contexto Específico Aplicado:** {contexto_video_especifico}")
-
-                    # Mostrar especialistas utilizados
-                    st.info(f"**🔧 Especialistas utilizados na análise:** {', '.join([analisadores_config[k]['nome'] for k in analisadores_selecionados_video if k in analisadores_config])}")
-
-                    # Botão para download do relatório
-                    if st.button("📥 Exportar Relatório de Vídeos", key="exportar_relatorio_videos"):
-                        relatorio_videos = f"""
-                        # RELATÓRIO DE VALIDAÇÃO DE VÍDEOS
-
-                        **Agente:** {agente.get('nome', 'N/A')}
-                        **Data:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
-                        **Total de Vídeos:** {len(uploaded_videos)}
-                        **Contexto Global:** {contexto_global if contexto_global else 'Nenhum'}
-                        **Contexto Específico:** {contexto_video_especifico if contexto_video_especifico else 'Nenhum'}
-                        **Método de Análise:** Análise Especializada por Múltiplos Especialistas
-                        **Especialistas Utilizados:** {', '.join(analisadores_selecionados_video)}
-
-                        ## VÍDEOS ANALISADOS:
-                        {chr(10).join([f"{idx+1}. {vid.name} ({vid.type}) - {vid.size/(1024*1024):.1f} MB" for idx, vid in enumerate(uploaded_videos)])}
-
-                        ## ANÁLISES INDIVIDUAIS:
-                        {chr(10).join([f'### {res["nome"]} {chr(10)}{res["analise"]}' for res in resultados_video])}
-                        """
-
-                        st.download_button(
-                            "💾 Baixar Relatório em TXT",
-                            data=relatorio_videos,
-                            file_name=f"relatorio_validacao_videos_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
-                            mime="text/plain"
-                        )
-
+                    st.subheader("📋 Resultado da Análise")
+                    
+                    for resultado in st.session_state.resultados_analise_video:
+                        if resultado['nome'] == uploaded_video.name:
+                            with st.expander(f"🎬 {resultado['nome']} - Análise Completa", expanded=True):
+                                st.markdown(resultado['analise'])
+                                if resultado.get('especialistas_utilizados'):
+                                    st.caption(f"**Especialistas utilizados:** {', '.join(resultado['especialistas_utilizados'])}")
+                            
+                            # Botão para download do relatório individual
+                            col_dl1, col_dl2 = st.columns(2)
+                            with col_dl1:
+                                st.download_button(
+                                    "📥 Exportar Relatório Individual (TXT)",
+                                    data=resultado['analise'],
+                                    file_name=f"relatorio_{resultado['nome'].split('.')[0]}_{datetime.datetime.now().strftime('%Y%m%d_%H%M')}.txt",
+                                    mime="text/plain",
+                                    key=f"download_individual_{resultado['nome']}"
+                                )
+                            
+                            # Botão para nova análise
+                            with col_dl2:
+                                if st.button("🔄 Nova Análise", key="nova_analise_btn"):
+                                    st.session_state.resultados_analise_video = []
+                                    st.rerun()
+        
+                # Estatísticas de processamento para arquivos grandes
+                if uploaded_video.size > 200 * 1024 * 1024:  # > 200MB
+                    with st.expander("📊 Estatísticas de Processamento", expanded=False):
+                        st.info(f"""
+                        **Arquivo de {tamanho_mb:.1f} MB processado com sucesso!**
+                        
+                        O processamento de arquivos grandes pode levar vários minutos dependendo:
+                        - Tamanho e duração do vídeo
+                        - Número de especialistas selecionados
+                        - Velocidade da sua conexão
+                        - Capacidade do servidor
+                        
+                        **Recomendações:**
+                        - Para análises mais rápidas, use vídeos comprimidos (H.264)
+                        - Considere reduzir a duração do vídeo
+                        - Selecione apenas os especialistas necessários
+                        """)
+        
             # Mostrar análises existentes da sessão
             elif st.session_state.get('resultados_analise_video'):
-                st.info("📋 Análises anteriores encontradas. Use o botão 'Limpar Análises' para recomeçar.")
-
+                st.info("📋 Análise anterior encontrada. Carregue um novo vídeo para nova análise.")
+        
                 for resultado in st.session_state.resultados_analise_video:
                     with st.expander(f"🎬 {resultado['nome']} - Análise Salva", expanded=False):
                         st.markdown(resultado['analise'])
                         if resultado.get('especialistas_utilizados'):
                             st.caption(f"**Especialistas utilizados:** {', '.join(resultado['especialistas_utilizados'])}")
-
+                        
+                        # Botão para baixar relatório salvo
+                        st.download_button(
+                            "📥 Baixar Relatório Salvo",
+                            data=resultado['analise'],
+                            file_name=f"relatorio_{resultado['nome'].split('.')[0]}_salvo.txt",
+                            mime="text/plain",
+                            key=f"download_salvo_{resultado['nome']}"
+                        )
+        
             else:
-                st.info("🎬 Carregue um ou mais vídeos para iniciar a validação")
+                # Instruções detalhadas
+                st.info("""
+                🎬 **Carregue um vídeo para iniciar a validação**
+        
+                **📤 Upload de Vídeos Grandes:**
+                - ✅ **Suporte para arquivos de qualquer tamanho** (>200MB)
+                - ⚡ Upload único por vez para melhor performance
+                - 🔄 Processamento otimizado para arquivos grandes
+                - 📊 Barra de progresso durante a análise
+        
+                **🎯 O que será analisado:**
+                - 📖 Narrativa e estrutura do conteúdo
+                - 🔊 Qualidade e clareza do áudio
+                - 🎥 Aspectos visuais e cinematográficos
+                - 🎯 Sincronização entre áudio e legendas
+                - 🏢 Consistência com as diretrizes de branding
+                - 📈 Engajamento e eficácia da mensagem
+        
+                **💡 Dicas para vídeos grandes:**
+                1. Prefira o formato MP4 com codec H.264
+                2. Aguarde o processamento completo (pode levar alguns minutos)
+                3. Não recarregue a página durante a análise
+                4. Vídeos muito longos podem ter análise limitada
+                """)
                 
 # --- ABA: GERAÇÃO DE CONTEÚDO (COM BUSCA WEB FUNCIONAL) ---
 with tab_mapping["✨ Geração de Conteúdo"]:
