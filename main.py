@@ -2472,7 +2472,7 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
     ### ⚠️ PROBLEMAS DE ESTRUTURA
     - [Issues na organização do conteúdo]
     
-    ### 📊 SCORE NARRATIVA: [X/10]
+
     
     ### 💡 SUGESTÕES NARRATIVAS
     - [Melhorias para estrutura e ritmo]
@@ -2506,7 +2506,7 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
     ### ❌ PROBLEMAS DE ÁUDIO
     - [Issues técnicos e de qualidade]
     
-    ### 📊 SCORE ÁUDIO: [X/10]
+
     
     ### 🎧 RECOMENDAÇÕES DE ÁUDIO
     - [Sugestões para melhor qualidade sonora]
@@ -2538,7 +2538,7 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
     ### ⚠️ PROBLEMAS VISUAIS
     - [Issues de qualidade visual]
     
-    ### 📊 SCORE VISUAL: [X/10]
+
     
     ### 🌟 SUGESTÕES VISUAIS
     - [Melhorias para cinematografia]
@@ -2739,7 +2739,7 @@ def gerar_relatorio_imagem_consolidado(resultados_especialistas, nome_imagem, di
 
 **Data da Análise:** {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}
 
-## 🎖️ SCORES POR ÁREA ESPECIALIZADA
+
 """
     
     # Adicionar scores individuais
@@ -2849,7 +2849,7 @@ def criar_analisadores_texto(contexto_agente, contexto_global):
 ### ❌ ERROS IDENTIFICADOS
 - [Lista específica de erros com correções]
 
-### 📊 SCORE ORTOGRÁFICO: [X/10]
+
 
 ### 💡 SUGESTÕES DE MELHORIA
 - [Recomendações específicas]
@@ -2885,7 +2885,7 @@ def criar_analisadores_texto(contexto_agente, contexto_global):
 ### 🔄 SUGESTÕES DE SINÔNIMOS
 - [Palavras para substituir]
 
-### 📊 SCORE LEXICAL: [X/10]
+
 """
         },
         'branding': {
@@ -2915,7 +2915,7 @@ def criar_analisadores_texto(contexto_agente, contexto_global):
 ### ❌ DESVIOS IDENTIFICADOS
 - [Elementos fora do padrão da marca]
 
-### 📊 SCORE BRANDING: [X/10]
+
 
 ### 💡 RECOMENDAÇÕES ESTRATÉGICAS
 - [Sugestões para melhor alinhamento]
@@ -2973,7 +2973,7 @@ def executar_analise_texto_especializada(texto, nome_arquivo, analisadores):
 ###BEGIN TEXTO PARA ANÁLISE###
 **Arquivo:** {nome_arquivo}
 **Conteúdo:**
-{texto[:8000]}
+{texto}
 ###END TEXTO PARA ANÁLISE###
 
 Por favor, forneça sua análise no formato solicitado.
@@ -3055,7 +3055,7 @@ def criar_prompt_validacao_preciso(texto, nome_arquivo, contexto_agente):
 ###BEGIN TEXTO PARA VALIDAÇÃO###
 **Arquivo:** {nome_arquivo}
 **Conteúdo:**
-{texto[:12000]}
+{texto}
 ###END TEXTO PARA VALIDAÇÃO###
 
 ## FORMATO DE RESPOSTA OBRIGATÓRIO:
@@ -4795,13 +4795,13 @@ with tab_mapping["✅ Validação Unificada"]:
                                                     6. **Qualidade técnica**: Nitidez, iluminação, foco
                                                     7. **Impacto emocional**: Que sentimento ou mensagem transmite?
                                                     
-                                                    Forneça a análise em formato claro e estruturado.
+                                                    Forneça a análise em formato claro e estruturad e estrutamente em pt-br.
                                                     """
                                                 else:
                                                     prompt_analise = f"""
                                                     {contexto_completo}
                                                     
-                                                    Analise esta imagem brevemente, focando no alinhamento com as diretrizes de branding.
+                                                    Analise esta imagem brevemente, focando no alinhamento com as diretrizes de branding. Sua análise deve ser em pt-br.
                                                     
                                                     Forneça:
                                                     1. Resumo do conteúdo
