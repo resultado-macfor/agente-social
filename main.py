@@ -2612,7 +2612,9 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
             'sincronizacao_audio_legendas': {
                 'nome': '🎯 Especialista em Sincronização Áudio-Legendas',
                 'prompt': f"""
+                ###Begin contexto agente###
     {contexto_agente}
+    ###End contexto agente###
     {contexto_global}
     {contexto_video_especifico}
     
@@ -2623,6 +2625,9 @@ def criar_analisadores_video(contexto_agente, contexto_global, contexto_video_es
     ### CRITÉRIOS DE ANÁLISE:
     1. **Timing** - Sincronização precisa
     2. **Legibilidade** - Clareza das legendas
+    3. **Capitalização** - Veja se a capitalização das legendas segue uma ordem lógica entre uma fala e outra. Exemplo, se depois de um ponto final ou vírgula vem a capitalização apropriada.
+    4. **Ortografia e Gramática** - Padrões de correção de gramática e ortografia das legendas
+    5. **Branding** - Se as legendas seguem padrões estabelecidos no contexto do cliente selecionado (Em caso de conflito entre regras de ortografia e contexto do agente, priorize o do agente)
 
     
     ### FORMATO DE RESPOSTA OBRIGATÓRIO:
@@ -3593,6 +3598,12 @@ with tab_mapping["✅ Validação Unificada"]:
                                     * Diferenças de pontuação que alterem o sentido.
                                     * Erros de Capitalização: Ex: Letra maiúscula incorreta após uma vírgula no meio de uma frase (ex: "Vamos lá, Como está?").
                                     c. Verificação de Nomes Próprios: Para nomes da lista fornecida, aceite pequenas variações e não marque como erro.
+                                     ### CRITÉRIOS DE ANÁLISE:
+    1. **Timing** - Sincronização precisa
+    2. **Legibilidade** - Clareza das legendas
+    3. **Capitalização** - Veja se a capitalização das legendas segue uma ordem lógica entre uma fala e outra. Exemplo, se depois de um ponto final ou vírgula vem a capitalização apropriada.
+    4. **Ortografia e Gramática** - Padrões de correção de gramática e ortografia das legendas
+    5. **Branding** - Se as legendas seguem padrões estabelecidos no contexto do cliente selecionado (Em caso de conflito entre regras de ortografia e contexto do agente, priorize o do agente)
         
                                 Formato do Relatório de Saída:
         
