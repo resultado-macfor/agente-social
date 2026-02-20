@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from anthropic import Anthropic
 import streamlit as st
 import io
@@ -49,8 +51,8 @@ else:
 gemini_api_key = os.getenv("GEM_API_KEY")
 if gemini_api_key:
     genai.configure(api_key=gemini_api_key)
-    modelo_vision = genai.GenerativeModel("gemini-2.0-flash", generation_config={"temperature": 0.0})
-    modelo_texto = genai.GenerativeModel("gemini-2.0-flash")
+    modelo_vision = genai.GenerativeModel("gemini-2.5-flash", generation_config={"temperature": 0.0})
+    modelo_texto = genai.GenerativeModel("gemini-2.5-flash")
 else:
     st.error("GEM_API_KEY não encontrada nas variáveis de ambiente")
     modelo_vision = None
@@ -2706,7 +2708,7 @@ Por favor, forneça sua análise especializada no formato solicitado.
                 # Processar vídeo com o especialista específico
                 video_bytes = uploaded_video.getvalue()
                 
-                if len(video_bytes) < 200 * 1024 * 1024:
+                if len(video_bytes) < 2000 * 1024 * 1024:
                     response = modelo_vision.generate_content([
                         prompt_completo,
                         {"mime_type": uploaded_video.type, "data": video_bytes}
@@ -5145,6 +5147,75 @@ with tab_mapping["✅ Validação Unificada"]:
 
                     # Mostrar especialistas utilizados
                     st.info(f"**🔧 Especialistas utilizados na análise:** {', '.join([analisadores_config[k]['nome'] for k in analisadores_selecionados_video if k in analisadores_config])}")
+            
+            st.markdown("---")
+            st.subheader(" Faça Perguntas sobre o Vídeo")
+
+            if 'video_qa_uploaded_video' not in st.session_state:
+                st.session_state.video_qa_uploaded_video = None
+            if 'video_qa_answer' not in st.session_state:
+                st.session_state.video_qa_answer = None
+            if 'video_qa_question' not in st.session_state:
+                st.session_state.video_qa_question = ""
+
+            # Use a separate uploader for this section
+            video_qa_file = st.file_uploader(
+                "Carregue um vídeo para fazer perguntas",
+                type=["mp4", "mov", "avi"],
+                key="video_qa_uploader"
+            )
+
+            if video_qa_file:
+                st.session_state.video_qa_uploaded_video = video_qa_file
+
+            if st.session_state.video_qa_uploaded_video:
+                st.video(st.session_state.video_qa_uploaded_video)
+                
+                question = st.text_area(
+                    "O que você quer saber sobre este vídeo?",
+                    key='video_qa_question_input',
+                    placeholder="O que você quer saber sobre este vídeo?",
+                    value=st.session_state.video_qa_question
+                )
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("🔍 Analisar e Responder", key="video_qa_ask"):
+                        if question:
+                            st.session_state.video_qa_question = question
+                            
+                            with st.spinner("Analisando o vídeo e gerando resposta..."):
+                                try:
+                                    model = genai.GenerativeModel('gemini-2.0-flash')
+                                    prompt = f"Analise este vídeo e responda: {st.session_state.video_qa_question}"
+                                    
+                                    video_bytes = st.session_state.video_qa_uploaded_video.getvalue()
+                                    video_mime_type = st.session_state.video_qa_uploaded_video.type
+                                    
+                                    video_part = {
+                                        "mime_type": video_mime_type,
+                                        "data": video_bytes
+                                    }
+
+                                    response = model.generate_content([prompt, video_part])
+                                    
+                                    st.session_state.video_qa_answer = response.text
+
+                                except Exception as e:
+                                    st.session_state.video_qa_answer = f"Ocorreu um erro: {str(e)}"
+                        else:
+                            st.warning("Por favor, insira uma pergunta.")
+
+                with col2:
+                    if st.button("🔄 Fazer Nova Pergunta", key="video_qa_new_question"):
+                        st.session_state.video_qa_question = ""
+                        st.session_state.video_qa_answer = None
+                        st.rerun()
+
+                if st.session_state.video_qa_answer:
+                    st.markdown("### Resposta:")
+                    with st.container(border=True):
+                        st.markdown(st.session_state.video_qa_answer)
 
                     # Botão para download do relatório
                     if st.button("📥 Exportar Relatório de Vídeos", key="exportar_relatorio_videos"):
