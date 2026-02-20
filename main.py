@@ -67,6 +67,7 @@ else:
 
 
 senha_admin = os.getenv('SENHA_ADMIN')
+maxUploadSize = 2000
 
 
 senha_syn = os.getenv('SENHA_SYN')
